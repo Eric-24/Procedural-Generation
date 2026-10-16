@@ -511,10 +511,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DotGen
   dotPrefab: {fileID: 8763254557746786616, guid: fe75ece41debd4bdb93e494364b118f0, type: 3}
-  gridWidth: 200
-  gridLength: 200
+  gridWidth: 100
+  gridLength: 100
   spacing: 1
-  heightSpacing: 10
+  heightSpacing: 50
+  ampMult: 0.0001
+  octaves: 20
+  freqMult: 5
 --- !u!4 &2129384254
 Transform:
   m_ObjectHideFlags: 0
