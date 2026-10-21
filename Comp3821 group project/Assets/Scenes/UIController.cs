@@ -29,8 +29,6 @@ public class SandboxUIController : MonoBehaviour
     public GameObject advancedParametersPage;
     // Add future pages here 
 
-
-
     void Update()
     {
         // Toggle Escape Menu when Escape key is pressed
@@ -39,7 +37,7 @@ public class SandboxUIController : MonoBehaviour
             ToggleEscapeMenu();
         }
 
-        // Only regenerate if necessary and limited amoutns
+        // Only regenerate if necessary and limited amounts
         if (needsRegeneration && Time.unscaledTime - lastRegenerationTime >= minRegenerationInterval)
         {
             needsRegeneration = false;
@@ -81,7 +79,7 @@ public class SandboxUIController : MonoBehaviour
     // --- Slider Callbacks for DotGen ---
     public void onAmplitudeChanged(float val)
     {
-        dotGenerator.ampMult = ampMin + ampMax - val;
+        dotGenerator.ampMult = val;
         RequestRegen();
     }
 
@@ -125,7 +123,6 @@ public class SandboxUIController : MonoBehaviour
         {
             seedInputField.text = newSeed.ToString();
         }
-            
 
         RequestRegen();
     }

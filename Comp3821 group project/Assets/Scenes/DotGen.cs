@@ -4,14 +4,17 @@ public class DotGen : MonoBehaviour
 {
     [Header("Dot Settings")]
     public GameObject dotPrefab;
-    public int gridWidth = 10;
-    public int gridLength = 10;
-    public float spacing = 50f;
-    public float heightSpacing = 2f;
+    public int gridWidth = 100;
+    public int gridLength = 100;
+    public float spacing = 0.5f;
+    public float heightSpacing = 50f;
+
+    [Header("Noise Settings")]
+    public float noiseScale = 10f;
     public float ampMult = 0.5f;
     public int octaves = 4;
     public float freqMult = 2f;
-    public int seed = 0; // UI ONLY FOR NOW. NEEDS IMPLEMENTATION
+    public int seed = 0;
 
     private Transform[,] spawnedDots;
 
@@ -42,35 +45,68 @@ public class DotGen : MonoBehaviour
             }
         }
 
-        for (int x = 0; x < gridWidth; x++)
+        // Compute all heights in a 1D array
+        float[] heightMap = GenerateHeightMap();
+
+        // Apply heights to the spawned dots
+        for (int z = 0; z < gridLength; z++)
         {
-            for (int z = 0; z < gridLength; z++)
+            for (int x = 0; x < gridWidth; x++)
             {
-                float y = AddVariations(x, z) * heightSpacing;
+                float y = heightMap[z * gridWidth + x];
                 spawnedDots[x, z].position = new Vector3(x * spacing, y, z * spacing);
             }
         }
     }
 
-    float AddVariations(int x, int z)
+    public float[] GenerateHeightMap()
     {
-        float totalHeight = 0f;
-        float amplitude = 1f;
-        float frequency = 1f;
+        float[] heightMap = new float[gridWidth * gridLength];
+        System.Random prng = new System.Random(seed);
+        Vector2[] octaveOffsets = new Vector2[octaves];
+
         float maxAmp = 0f;
+        float amp = 1f;
 
         for (int i = 0; i < octaves; i++)
         {
-            float xNoise = x * frequency;
-            float zNoise = z * frequency;
-            float noiseVal = Mathf.PerlinNoise(xNoise * 0.1f, zNoise * 0.1f) - 1f;
-            totalHeight += noiseVal * amplitude;
+            float offsetX = prng.Next(-100000, 100000);
+            float offsetZ = prng.Next(-100000, 100000);
+            octaveOffsets[i] = new Vector2(offsetX, offsetZ);
 
-            maxAmp += amplitude;
-            amplitude *= ampMult;
-            frequency *= freqMult;
+            maxAmp += amp;
+            amp *= ampMult;
         }
 
-        return totalHeight / maxAmp;
+        if (noiseScale <= 0f) noiseScale = 0.0001f;
+
+        float halfWidth = gridWidth / 2f;
+        float halfLength = gridLength / 2f;
+
+        for (int z = 0; z < gridLength; z++)
+        {
+            for (int x = 0; x < gridWidth; x++)
+            {
+                float amplitude = 1f;
+                float frequency = 1f;
+                float noiseHeight = 0f;
+
+                for (int i = 0; i < octaves; i++)
+                {
+                    float sampleX = (x - halfWidth) / noiseScale * frequency + octaveOffsets[i].x;
+                    float sampleZ = (z - halfLength) / noiseScale * frequency + octaveOffsets[i].y;
+
+                    float perlinValue = Mathf.PerlinNoise(sampleX, sampleZ) * 2f - 1f;
+                    noiseHeight += perlinValue * amplitude;
+
+                    amplitude *= ampMult;
+                    frequency *= freqMult;
+                }
+
+                heightMap[z * gridWidth + x] = (noiseHeight / maxAmp) * heightSpacing;
+            }
+        }
+
+        return heightMap;
     }
 }
