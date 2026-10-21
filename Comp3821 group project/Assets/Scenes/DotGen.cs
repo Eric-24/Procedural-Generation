@@ -11,6 +11,7 @@ public class DotGen : MonoBehaviour
     public float ampMult = 0.5f;
     public int octaves = 4;
     public float freqMult = 2f;
+    public int seed = 0; // UI ONLY FOR NOW. NEEDS IMPLEMENTATION
 
     private Transform[,] spawnedDots;
 
