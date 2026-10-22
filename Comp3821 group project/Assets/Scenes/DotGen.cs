@@ -6,24 +6,29 @@ public class DotGen : MonoBehaviour
     [Header("Terrain Mesh Settings")]
     public int gridWidth = 200;
     public int gridLength = 200;
-    public float spacing = 0.5f;
-    public float heightSpacing = 15f; 
+    public float spacing = 2.4f;
+    public float heightSpacing = 15f;
 
     [Header("Noise Settings")]
-    public float noiseScale = 25f; 
+    public float noiseScale = 25f;
     public float ampMult = 0.5f;
     public int octaves = 4;
     public float freqMult = 2f;
     public int seed = 0;
 
-    [Header("Water & Biome Preview")]
-    public Gradient terrainGradient;
+    [Header("Dev Visualization Settings")]
+    public bool useSlopeDiagnosticColors = true;
+    public bool useElevationDevColors = true;
+    public Gradient elevationGradient;
 
     private Mesh terrainMesh;
+    private MeshRenderer meshRenderer;
+
     private Vector3[] vertices;
     private int[] triangles;
     private Vector2[] uvs;
     private Color[] colors;
+    private float[] currentHeightMap;
 
     private int cachedWidth;
     private int cachedLength;
@@ -32,16 +37,20 @@ public class DotGen : MonoBehaviour
     {
         terrainMesh = new Mesh();
         terrainMesh.name = "Procedural Terrain Mesh";
-        // Uint32 allows for higher definition meshes
         terrainMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         GetComponent<MeshFilter>().mesh = terrainMesh;
+        meshRenderer = GetComponent<MeshRenderer>();
+
+        if (meshRenderer != null && meshRenderer.material != null)
+        {
+            meshRenderer.material.SetFloat("_Glossiness", 0.1f);
+        }
 
         InitializeDefaultGradient();
     }
 
     void Start()
     {
-        // clean up leftover children
         for (int i = transform.childCount - 1; i >= 0; i--)
         {
             Destroy(transform.GetChild(i).gameObject);
@@ -50,11 +59,22 @@ public class DotGen : MonoBehaviour
         GenerateDotMap();
     }
 
+    // Allows you to toggle color checkboxes in the Unity Inspector during Play Mode and see results immediately
+    void OnValidate()
+    {
+        if (Application.isPlaying && terrainMesh != null && currentHeightMap != null && vertices != null)
+        {
+            if (currentHeightMap.Length == vertices.Length)
+            {
+                UpdateTerrainColors(currentHeightMap, terrainMesh.normals);
+            }
+        }
+    }
+
     public void GenerateDotMap()
     {
         if (terrainMesh == null) return;
 
-        // only rewrite if dimensions or params change
         bool dimensionsChanged = (vertices == null || cachedWidth != gridWidth || cachedLength != gridLength);
         if (dimensionsChanged)
         {
@@ -64,25 +84,18 @@ public class DotGen : MonoBehaviour
         }
 
         // generate the height map
-        float[] heightMap = GenerateHeightMap();
+        currentHeightMap = GenerateHeightMap();
 
-        // Update vertex positions and biome colors
+        // update vertex Positions
         for (int z = 0; z < gridLength; z++)
         {
             for (int x = 0; x < gridWidth; x++)
             {
                 int index = z * gridWidth + x;
-                float y = heightMap[index];
-
-                vertices[index] = new Vector3(x * spacing, y, z * spacing);
-
-                // Normalize height to [0, 1] for biome color
-                float normalizedHeight = Mathf.InverseLerp(-heightSpacing, heightSpacing, y);
-                colors[index] = terrainGradient.Evaluate(normalizedHeight);
+                vertices[index] = new Vector3(x * spacing, currentHeightMap[index], z * spacing);
             }
         }
 
-        // Push data to the GPU
         if (dimensionsChanged)
         {
             terrainMesh.Clear();
@@ -92,13 +105,81 @@ public class DotGen : MonoBehaviour
         }
         else
         {
-            // only update vertices for slider changes
-            terrainMesh.vertices = vertices;
+            terrainMesh.vertices = vertices; // only vertices to save compute
         }
 
-        terrainMesh.colors = colors;
-        terrainMesh.RecalculateNormals(); // for directional light shadows
+        terrainMesh.RecalculateNormals();
         terrainMesh.RecalculateBounds();
+
+        // color terrain by slope and elevation
+        UpdateTerrainColors(currentHeightMap, terrainMesh.normals);
+    }
+
+    public void UpdateTerrainColors(float[] heightMap, Vector3[] normals)
+    {
+        // flat colors
+        Color lowBasinColor = new Color(0.22f, 0.42f, 0.45f);   // teal
+        Color midPlainsColor = new Color(0.38f, 0.55f, 0.32f);  // green
+        Color highPlateauColor = new Color(0.76f, 0.72f, 0.62f);// ochre
+        Color neutralFlatColor = new Color(0.75f, 0.75f, 0.75f);// neutral grey when elevation dev color is off
+
+        // slope colors
+        Color talusSlopeColor = new Color(0.72f, 0.45f, 0.25f); // terracotta
+        Color steepCliffColor = new Color(0.22f, 0.23f, 0.26f); // dark Slate 
+
+        for (int i = 0; i < vertices.Length; i++)
+        {
+            float normalizedHeight = Mathf.InverseLerp(-heightSpacing, heightSpacing, heightMap[i]);
+
+            // If both dev toggles are off, use the biome elevationGradient
+            if (!useSlopeDiagnosticColors && !useElevationDevColors)
+            {
+                colors[i] = elevationGradient.Evaluate(normalizedHeight);
+                continue;
+            }
+
+            // 1. Determine base flat color (either Dev Elevation or Neutral Grey)
+            Color baseHeightColor;
+            if (useElevationDevColors)
+            {
+                baseHeightColor = normalizedHeight < 0.5f
+                    ? Color.Lerp(lowBasinColor, midPlainsColor, normalizedHeight * 2f)
+                    : Color.Lerp(midPlainsColor, highPlateauColor, (normalizedHeight - 0.5f) * 2f);
+            }
+            else
+            {
+                baseHeightColor = neutralFlatColor;
+            }
+
+            // 2. Overlay Slope Diagnostic colors if enabled
+            if (!useSlopeDiagnosticColors)
+            {
+                colors[i] = baseHeightColor;
+            }
+            else
+            {
+                // Calculate slope angle in degrees. 0 is flat
+                float slopeDegrees = Mathf.Acos(Mathf.Clamp(normals[i].y, -1f, 1f)) * Mathf.Rad2Deg;
+
+                if (slopeDegrees < 18f)
+                {
+                    colors[i] = baseHeightColor;
+                }
+                else if (slopeDegrees < 35f)
+                {
+                    // blend flat color with slope color
+                    float t = Mathf.InverseLerp(18f, 35f, slopeDegrees);
+                    colors[i] = Color.Lerp(baseHeightColor, talusSlopeColor, t);
+                }
+                else
+                {
+                    // blend slope color with steep slope color
+                    float t = Mathf.InverseLerp(35f, 55f, slopeDegrees);
+                    colors[i] = Color.Lerp(talusSlopeColor, steepCliffColor, t);
+                }
+            }
+        }
+        terrainMesh.colors = colors;
     }
 
     private void AllocateMeshArrays()
@@ -115,17 +196,15 @@ public class DotGen : MonoBehaviour
             for (int x = 0; x < gridWidth; x++)
             {
                 int vertIndex = z * gridWidth + x;
-                uvs[vertIndex] = new Vector2(x / (float)(gridWidth - 1), z / (float)(gridLength - 1));
+                // offset UVs by half a texel so vertices align with pixel centers
+                uvs[vertIndex] = new Vector2((x + 0.5f) / gridWidth, (z + 0.5f) / gridLength);
 
-                // Build 2 triangles for each quad (skipping the last row/column)
                 if (x < gridWidth - 1 && z < gridLength - 1)
                 {
-                    // Triangle 1 (Bottom-Left, Top-Left, Bottom-Right)
                     triangles[triIndex + 0] = vertIndex;
                     triangles[triIndex + 1] = vertIndex + gridWidth;
                     triangles[triIndex + 2] = vertIndex + 1;
 
-                    // Triangle 2 (Bottom-Right, Top-Left, Top-Right)
                     triangles[triIndex + 3] = vertIndex + 1;
                     triangles[triIndex + 4] = vertIndex + gridWidth;
                     triangles[triIndex + 5] = vertIndex + gridWidth + 1;
@@ -187,19 +266,18 @@ public class DotGen : MonoBehaviour
         return heightMap;
     }
 
-    // set up a default color for the tile 
     private void InitializeDefaultGradient()
     {
-        if (terrainGradient != null && terrainGradient.colorKeys.Length > 2) return;
+        if (elevationGradient != null && elevationGradient.colorKeys.Length > 2) return;
 
-        terrainGradient = new Gradient();
-        terrainGradient.colorKeys = new GradientColorKey[]
+        elevationGradient = new Gradient();
+        elevationGradient.colorKeys = new GradientColorKey[]
         {
-            new GradientColorKey(new Color(0.1f, 0.3f, 0.6f), 0.0f), // Deep Water
-            new GradientColorKey(new Color(0.85f, 0.8f, 0.55f), 0.35f), // Sand
-            new GradientColorKey(new Color(0.25f, 0.55f, 0.2f), 0.5f), // Grass
-            new GradientColorKey(new Color(0.45f, 0.4f, 0.35f), 0.75f), // Rock
-            new GradientColorKey(Color.white, 0.95f) // Snow
+            new GradientColorKey(new Color(0.1f, 0.3f, 0.6f), 0.0f), // water
+            new GradientColorKey(new Color(0.85f, 0.8f, 0.55f), 0.35f), // sand
+            new GradientColorKey(new Color(0.25f, 0.55f, 0.2f), 0.5f), // grass
+            new GradientColorKey(new Color(0.45f, 0.4f, 0.35f), 0.75f), // rock
+            new GradientColorKey(Color.white, 0.95f) // snow
         };
     }
 }

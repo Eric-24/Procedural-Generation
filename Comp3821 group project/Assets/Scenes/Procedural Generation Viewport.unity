@@ -5053,7 +5053,9 @@ MonoBehaviour:
   octaves: 4
   freqMult: 2
   seed: 0
-  terrainGradient:
+  useSlopeDiagnosticColors: 0
+  useElevationDevColors: 0
+  elevationGradient:
     serializedVersion: 2
     key0: {r: 1, g: 1, b: 1, a: 1}
     key1: {r: 1, g: 1, b: 1, a: 1}

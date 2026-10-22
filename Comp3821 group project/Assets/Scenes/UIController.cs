@@ -76,7 +76,6 @@ public class SandboxUIController : MonoBehaviour
         // When you add more category pages later, set them to false here
     }
 
-    // --- Slider Callbacks for DotGen ---
     public void onAmplitudeChanged(float val)
     {
         dotGenerator.ampMult = val;
@@ -124,6 +123,18 @@ public class SandboxUIController : MonoBehaviour
             seedInputField.text = newSeed.ToString();
         }
 
+        RequestRegen();
+    }
+
+    public void onSlopeColorToggleChanged(bool isOn)
+    {
+        dotGenerator.useSlopeDiagnosticColors = isOn;
+        RequestRegen();
+    }
+
+    public void onElevationColorToggleChanged(bool isOn)
+    {
+        dotGenerator.useElevationDevColors = isOn;
         RequestRegen();
     }
 
