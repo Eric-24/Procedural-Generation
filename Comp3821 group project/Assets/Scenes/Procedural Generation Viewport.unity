@@ -5053,8 +5053,21 @@ MonoBehaviour:
   octaves: 4
   freqMult: 2
   seed: 0
+  enableHydraulicErosion: 1
+  erosionIterations: 20000
+  erosionRadius: 1
+  erosionInertia: 0.05
+  sedimentCapacityFactor: 4
+  minSedimentCapacity: 0.01
+  erodeSpeed: 0.1
+  depositSpeed: 0.1
+  evaporateSpeed: 0.02
+  gravity: 4
+  maxDropletLifetime: 30
   useSlopeDiagnosticColors: 0
   useElevationDevColors: 0
+  showWaterDischargeDebug: 1
+  streamDischargeThreshold: 15
   elevationGradient:
     serializedVersion: 2
     key0: {r: 1, g: 1, b: 1, a: 1}
@@ -5085,6 +5098,8 @@ MonoBehaviour:
     m_ColorSpace: -1
     m_NumColorKeys: 2
     m_NumAlphaKeys: 2
+  waterDischargeMap: []
+  flowDirectionMap: []
 --- !u!4 &2129384254
 Transform:
   m_ObjectHideFlags: 0
