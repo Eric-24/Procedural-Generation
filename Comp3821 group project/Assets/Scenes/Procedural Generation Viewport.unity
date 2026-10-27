@@ -525,7 +525,7 @@ MonoBehaviour:
   m_MinValue: 0
   m_MaxValue: 2
   m_WholeNumbers: 0
-  m_Value: 1
+  m_Value: 2
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls:
@@ -1682,7 +1682,7 @@ MonoBehaviour:
   m_MinValue: 0.2
   m_MaxValue: 5
   m_WholeNumbers: 0
-  m_Value: 2
+  m_Value: 1.3
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls:
@@ -2417,7 +2417,7 @@ MonoBehaviour:
   m_MinValue: 1
   m_MaxValue: 8
   m_WholeNumbers: 1
-  m_Value: 4
+  m_Value: 6
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls:
@@ -5044,30 +5044,42 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8a12f40ae9b74bf19725cc4a6233913, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DotGen
-  gridWidth: 100
-  gridLength: 100
-  spacing: 2
-  heightSpacing: 15
-  noiseScale: 25
+  gridWidth: 600
+  gridLength: 600
+  spacing: 1.3
+  heightSpacing: 95
+  noiseScale: 135
   ampMult: 0.5
   octaves: 4
   freqMult: 2
+  mountainPower: 1.83
+  ridgeSharpness: 0.489
+  fernBranchingStrength: 0.82
+  macroRangeContrast: 0.85
   seed: 0
   enableHydraulicErosion: 1
-  erosionIterations: 20000
-  erosionRadius: 1
+  erosionIterations: 40000
+  erosionRadius: 4
   erosionInertia: 0.05
   sedimentCapacityFactor: 4
   minSedimentCapacity: 0.01
-  erodeSpeed: 0.1
+  erodeSpeed: 0.568
   depositSpeed: 0.1
   evaporateSpeed: 0.02
   gravity: 4
   maxDropletLifetime: 30
+  enableThermalErosion: 1
+  thermalIterations: 4
+  talusAngleThreshold: 0.005
+  thermalRelaxation: 0.25
+  enableVolumedWater: 1
+  oceanSeaLevel: -28
+  waterOpacity: 0.58
+  riverFluxThreshold: 2400
+  lakeRarity: 0.85
   useSlopeDiagnosticColors: 0
   useElevationDevColors: 0
   showWaterDischargeDebug: 1
-  streamDischargeThreshold: 15
   elevationGradient:
     serializedVersion: 2
     key0: {r: 1, g: 1, b: 1, a: 1}
@@ -5100,6 +5112,7 @@ MonoBehaviour:
     m_NumAlphaKeys: 2
   waterDischargeMap: []
   flowDirectionMap: []
+  waterSurfaceMap: []
 --- !u!4 &2129384254
 Transform:
   m_ObjectHideFlags: 0
