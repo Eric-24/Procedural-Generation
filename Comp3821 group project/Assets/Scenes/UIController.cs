@@ -1,11 +1,24 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
+using TMPro;
 
 public class SandboxUIController : MonoBehaviour
 {
     [Header("References")]
     public DotGen dotGenerator;
+
+    [Header("Amplitude Slider Range")]
+    public float ampMin = 0.1f;
+    public float ampMax = 1f;
+
+    [Header("Seed")]
+    public TMP_InputField seedInputField;
+
+    [Header("Live Regeneration")]
+    public float minRegenerationInterval = 0.05f;
+    private bool needsRegeneration;
+    private float lastRegenerationTime;
 
     [Header("Menus & Collapsible Dock")]
     public GameObject escapeMenuPanel;
@@ -16,8 +29,6 @@ public class SandboxUIController : MonoBehaviour
     public GameObject advancedParametersPage;
     // Add future pages here 
 
-
-
     void Update()
     {
         // Toggle Escape Menu when Escape key is pressed
@@ -25,6 +36,20 @@ public class SandboxUIController : MonoBehaviour
         {
             ToggleEscapeMenu();
         }
+
+        // Only regenerate if necessary and limited amounts
+        if (needsRegeneration && Time.unscaledTime - lastRegenerationTime >= minRegenerationInterval)
+        {
+            needsRegeneration = false;
+            lastRegenerationTime = Time.unscaledTime;
+            dotGenerator.GenerateDotMap();
+        }
+    }
+
+    // Request the regeneration of the dot map
+    private void RequestRegen()
+    {
+        needsRegeneration = true;
     }
 
     public void ToggleEscapeMenu()
@@ -51,23 +76,66 @@ public class SandboxUIController : MonoBehaviour
         // When you add more category pages later, set them to false here
     }
 
-    // --- Slider Callbacks for DotGen ---
-    public void OnAmplitudeChanged(float val)
+    public void onAmplitudeChanged(float val)
     {
         dotGenerator.ampMult = val;
-        dotGenerator.GenerateDotMap();
+        RequestRegen();
     }
 
-    public void OnFrequencyChanged(float val)
+    public void onFrequencyChanged(float val)
     {
         dotGenerator.freqMult = val;
-        dotGenerator.GenerateDotMap();
+        RequestRegen();
     }
 
-    public void OnSpacingChanged(float val)
+    public void onSpacingChanged(float val)
     {
         dotGenerator.spacing = val;
-        dotGenerator.GenerateDotMap();
+        RequestRegen();
+    }
+
+    public void onOctaveChanged(float val)
+    {
+        dotGenerator.octaves = Mathf.Max(1, Mathf.RoundToInt(val));
+        RequestRegen();
+    }
+
+    public void onSeedChanged(string text)
+    {
+        if (int.TryParse(text, out int newSeed))
+        {
+            dotGenerator.seed = newSeed;
+            RequestRegen();
+        }
+        else
+        {
+            Debug.LogWarning("SEED HAS TO BE A NUMBER");
+        }
+    }
+
+    public void generateRandomSeed()
+    {
+        int newSeed = Random.Range(0, 1000000);
+        dotGenerator.seed = newSeed;
+
+        if (seedInputField != null)
+        {
+            seedInputField.text = newSeed.ToString();
+        }
+
+        RequestRegen();
+    }
+
+    public void onSlopeColorToggleChanged(bool isOn)
+    {
+        dotGenerator.useSlopeDiagnosticColors = isOn;
+        RequestRegen();
+    }
+
+    public void onElevationColorToggleChanged(bool isOn)
+    {
+        dotGenerator.useElevationDevColors = isOn;
+        RequestRegen();
     }
 
     public void ExitApplication()

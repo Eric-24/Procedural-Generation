@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
+
 public class FreeFlyCam : MonoBehaviour
 {
     public float moveSpeed = 50f;
@@ -7,9 +9,23 @@ public class FreeFlyCam : MonoBehaviour
     private float pitch = 0f;
     private float yaw = 0f;
 
+    void Start()
+    {
+        Vector3 angles = transform.eulerAngles;
+        pitch = angles.x;
+        yaw = angles.y;
+    }
+
     void Update()
     {
         if (Keyboard.current == null || Mouse.current == null) return;
+
+        // Ignore WASD movement if typing in a UI InputField
+        if (EventSystem.current != null && EventSystem.current.currentSelectedGameObject != null)
+        {
+            if (EventSystem.current.currentSelectedGameObject.GetComponent<TMPro.TMP_InputField>() != null)
+                return;
+        }
 
         if (Mouse.current.rightButton.isPressed)
         {
