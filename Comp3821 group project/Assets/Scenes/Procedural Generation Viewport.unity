@@ -5076,11 +5076,12 @@ MonoBehaviour:
   oceanSeaLevel: -28
   waterOpacity: 0.58
   riverFluxThreshold: 2400
-  lakeRarity: 0.85
   tectonicOceanDropoff: 2.35
+  sandShoreRadius: 4
+  sandMaxAltitude: 0.06
   useSlopeDiagnosticColors: 0
   useElevationDevColors: 0
-  showWaterDischargeDebug: 1
+  showWaterDischargeDebug: 0
   elevationGradient:
     serializedVersion: 2
     key0: {r: 1, g: 1, b: 1, a: 1}
@@ -5111,9 +5112,6 @@ MonoBehaviour:
     m_ColorSpace: -1
     m_NumColorKeys: 2
     m_NumAlphaKeys: 2
-  waterDischargeMap: []
-  flowDirectionMap: []
-  waterSurfaceMap: []
 --- !u!4 &2129384254
 Transform:
   m_ObjectHideFlags: 0
