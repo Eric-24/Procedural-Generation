@@ -55,6 +55,8 @@ public class DotGen : MonoBehaviour
     public bool showWaterDischargeDebug = false;
     public Gradient elevationGradient;
 
+    [SerializeField]
+    private BiomeGen biomeGenerator;
     private Mesh terrainMesh;
     private MeshRenderer meshRenderer;
 
@@ -105,6 +107,11 @@ public class DotGen : MonoBehaviour
 
     void Awake()
     {
+        if (biomeGenerator == null)
+        {
+            biomeGenerator = GetComponent<BiomeGen>();
+        }
+
         terrainMesh = new Mesh();
         terrainMesh.name = "Procedural Terrain Mesh";
         terrainMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
@@ -209,6 +216,22 @@ public class DotGen : MonoBehaviour
 
         terrainMesh.RecalculateNormals();
         terrainMesh.RecalculateBounds();
+
+        // generate biomes after terrain is generated
+        if (biomeGenerator != null)
+        {
+            biomeGenerator.GenerateBiomes(
+                normalizedMap,
+                currentHeightMap,
+                waterDischargeMap,
+                terrainMesh.normals,
+                gridWidth,
+                gridLength,
+                spacing,
+                oceanSeaLevel,
+                seed
+            );
+        }
 
         // color terrain by slope and elevation
         UpdateTerrainColors(currentHeightMap, terrainMesh.normals);
@@ -805,7 +828,32 @@ public class DotGen : MonoBehaviour
 
             if (!useSlope && !useElev)
             {
-                colors[i] = elevationGradient.Evaluate(normalizedHeight);
+                if (biomeGenerator != null &&
+                    biomeGenerator.useBiomeColors &&
+                    biomeGenerator.biomeColors != null &&
+                    i < biomeGenerator.biomeColors.Length)
+                {
+                    if (normalizedHeight < 0.35f)
+                    {
+                        // Keep biome colours for lower terrain.
+                        colors[i] = biomeGenerator.biomeColors[i];
+                        if (colors[i] == Color.magenta)
+                        {
+                            // If biome colour not set, refer back to elevation gradient colours
+                            colors[i] = elevationGradient.Evaluate(normalizedHeight);
+                        }
+                    }
+                    else
+                    {
+                        // Preserve the original gradient for mountains and snow
+                        colors[i] = elevationGradient.Evaluate(normalizedHeight);
+                    }
+                }
+                else
+                {
+                    // Original terrain gradient when biome colours are disabled
+                    colors[i] = elevationGradient.Evaluate(normalizedHeight);
+                }
             }
             else
             {

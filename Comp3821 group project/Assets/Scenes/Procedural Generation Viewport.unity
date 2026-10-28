@@ -695,6 +695,63 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &170183902
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 192044, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
+      propertyPath: m_Name
+      value: Fir_Tree
+      objectReference: {fileID: 0}
+    - target: {fileID: 471828, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -1.10557
+      objectReference: {fileID: 0}
+    - target: {fileID: 471828, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 471828, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -2.11898
+      objectReference: {fileID: 0}
+    - target: {fileID: 471828, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 471828, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.000000021855694
+      objectReference: {fileID: 0}
+    - target: {fileID: 471828, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 471828, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 471828, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 471828, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 471828, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
 --- !u!1 &186699888
 GameObject:
   m_ObjectHideFlags: 0
@@ -5232,6 +5289,7 @@ GameObject:
   - component: {fileID: 2129384253}
   - component: {fileID: 2129384256}
   - component: {fileID: 2129384255}
+  - component: {fileID: 2129384257}
   m_Layer: 0
   m_Name: DotGenerator
   m_TagString: Untagged
@@ -5317,6 +5375,7 @@ MonoBehaviour:
     m_ColorSpace: -1
     m_NumColorKeys: 2
     m_NumAlphaKeys: 2
+  biomeGenerator: {fileID: 0}
   waterDischargeMap: []
   flowDirectionMap: []
   waterSurfaceMap: []
@@ -5392,6 +5451,33 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2129384252}
   m_Mesh: {fileID: 0}
+--- !u!114 &2129384257
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2129384252}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 598e2c084763047c68c71d75a7368525, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BiomeGen
+  temperatureNoiseScale: 180
+  moistureNoiseScale: 130
+  temperatureVariation: 0.3
+  moistureVariation: 0.4
+  tropicalTemperature: 0.72
+  taigaTemperature: 0.3
+  desertMoisture: 0.25
+  wetlandMoisture: 0.78
+  useBiomeColors: 1
+  taigaColor: {r: 0.2, g: 0.34, b: 0.2, a: 1}
+  temperateForestColor: {r: 0.18, g: 0.48, b: 0.22, a: 1}
+  tropicalColor: {r: 0.04, g: 0.32, b: 0.12, a: 1}
+  wetlandsColor: {r: 0.28, g: 0.43, b: 0.27, a: 1}
+  desertColor: {r: 0.78, g: 0.64, b: 0.37, a: 1}
+  oceanColor: {r: 0.08, g: 0.3, b: 0.6, a: 1}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -5401,7 +5487,7 @@ SceneRoots:
   - {fileID: 2129384254}
   - {fileID: 385388772}
   - {fileID: 147784778}
-  - {fileID: 29904512}
   - {fileID: 2070704815}
   - {fileID: 1630394192}
   - {fileID: 1635958194}
+  - {fileID: 170183902}
