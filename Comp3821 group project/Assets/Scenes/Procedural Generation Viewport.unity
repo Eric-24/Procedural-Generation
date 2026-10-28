@@ -541,6 +541,11 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+--- !u!1 &111516126 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 191266, guid: c44bd9bdc114d4a60932c0087d9d1732, type: 3}
+  m_PrefabInstance: {fileID: 2070704815}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &141004524
 GameObject:
   m_ObjectHideFlags: 0
@@ -706,6 +711,10 @@ PrefabInstance:
     - target: {fileID: 192044, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
       propertyPath: m_Name
       value: Fir_Tree
+      objectReference: {fileID: 0}
+    - target: {fileID: 192044, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 471828, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1093,6 +1102,11 @@ MonoBehaviour:
   bottomDockPanel: {fileID: 1855881213}
   openDockButton: {fileID: 1276337122}
   advancedParametersPage: {fileID: 6908733}
+--- !u!1 &626998024 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 137650, guid: 826b6a0b570e8460990010fa615b5a2a, type: 3}
+  m_PrefabInstance: {fileID: 1635958194}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &644232348
 GameObject:
   m_ObjectHideFlags: 0
@@ -2181,6 +2195,11 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -20, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &846525717 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 192044, guid: 19682540d8a014522a319b1cf788aee2, type: 3}
+  m_PrefabInstance: {fileID: 170183902}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &864791748
 GameObject:
   m_ObjectHideFlags: 0
@@ -4269,6 +4288,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Palm_Tree
       objectReference: {fileID: 0}
+    - target: {fileID: 188006, guid: c6b7fb383a3534b039692b5485b6e739, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 481554, guid: c6b7fb383a3534b039692b5485b6e739, type: 3}
       propertyPath: m_LocalScale.x
       value: 0.1
@@ -4338,6 +4361,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Poplar_Tree
       objectReference: {fileID: 0}
+    - target: {fileID: 137650, guid: 826b6a0b570e8460990010fa615b5a2a, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 413218, guid: 826b6a0b570e8460990010fa615b5a2a, type: 3}
       propertyPath: m_LocalScale.x
       value: 0.1
@@ -4395,6 +4422,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 826b6a0b570e8460990010fa615b5a2a, type: 3}
+--- !u!1 &1643915495 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 188006, guid: c6b7fb383a3534b039692b5485b6e739, type: 3}
+  m_PrefabInstance: {fileID: 1630394192}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1730364502
 GameObject:
   m_ObjectHideFlags: 0
@@ -5220,6 +5252,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Oak_Tree
       objectReference: {fileID: 0}
+    - target: {fileID: 191266, guid: c44bd9bdc114d4a60932c0087d9d1732, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 405256, guid: c44bd9bdc114d4a60932c0087d9d1732, type: 3}
       propertyPath: m_LocalScale.x
       value: 0.1
@@ -5309,8 +5345,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8a12f40ae9b74bf19725cc4a6233913, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DotGen
-  gridWidth: 600
-  gridLength: 600
+  gridWidth: 1000
+  gridLength: 1000
   spacing: 1.3
   heightSpacing: 70
   noiseScale: 135
@@ -5321,6 +5357,8 @@ MonoBehaviour:
   ridgeSharpness: 0.489
   fernBranchingStrength: 0.82
   macroRangeContrast: 0.85
+  macroScale: 800
+  mountainBeltStrength: 0.6
   seed: 0
   enableHydraulicErosion: 1
   erosionIterations: 40000
@@ -5341,8 +5379,9 @@ MonoBehaviour:
   oceanSeaLevel: -28
   waterOpacity: 0.58
   riverFluxThreshold: 2400
-  lakeRarity: 0.85
   tectonicOceanDropoff: 2.35
+  sandShoreRadius: 4
+  sandMaxAltitude: 0.06
   useSlopeDiagnosticColors: 0
   useElevationDevColors: 0
   showWaterDischargeDebug: 1
@@ -5376,10 +5415,6 @@ MonoBehaviour:
     m_ColorSpace: -1
     m_NumColorKeys: 2
     m_NumAlphaKeys: 2
-  biomeGenerator: {fileID: 0}
-  waterDischargeMap: []
-  flowDirectionMap: []
-  waterSurfaceMap: []
 --- !u!4 &2129384254
 Transform:
   m_ObjectHideFlags: 0
@@ -5464,21 +5499,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 598e2c084763047c68c71d75a7368525, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BiomeGen
+  oakTreePrefab: {fileID: 111516126}
+  firTreePrefab: {fileID: 846525717}
+  poplarTreePrefab: {fileID: 626998024}
+  palmTreePrefab: {fileID: 1643915495}
+  treeParent: {fileID: 0}
+  treeSpacing: 12
+  treeSpawnChance: 1
+  minimumSlopeNormalY: 0
+  randomizeTreeRotation: 1
+  positionJitter: 0.85
+  mountainHeightLimit: 0.75
+  mountainSlopeLimit: 0.8
   temperatureNoiseScale: 180
   moistureNoiseScale: 130
   temperatureVariation: 0.3
   moistureVariation: 0.4
   tropicalTemperature: 0.72
   taigaTemperature: 0.3
+  desertTemperature: 0.72
   desertMoisture: 0.25
   wetlandMoisture: 0.78
-  useBiomeColors: 1
-  taigaColor: {r: 0.2, g: 0.34, b: 0.2, a: 1}
-  temperateForestColor: {r: 0.18, g: 0.48, b: 0.22, a: 1}
-  tropicalColor: {r: 0.04, g: 0.32, b: 0.12, a: 1}
-  wetlandsColor: {r: 0.28, g: 0.43, b: 0.27, a: 1}
-  desertColor: {r: 0.78, g: 0.64, b: 0.37, a: 1}
-  oceanColor: {r: 0.08, g: 0.3, b: 0.6, a: 1}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
