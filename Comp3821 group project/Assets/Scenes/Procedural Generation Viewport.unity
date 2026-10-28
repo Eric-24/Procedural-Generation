@@ -5047,7 +5047,7 @@ MonoBehaviour:
   gridWidth: 600
   gridLength: 600
   spacing: 1.3
-  heightSpacing: 95
+  heightSpacing: 70
   noiseScale: 135
   ampMult: 0.5
   octaves: 4
@@ -5063,7 +5063,7 @@ MonoBehaviour:
   erosionInertia: 0.05
   sedimentCapacityFactor: 4
   minSedimentCapacity: 0.01
-  erodeSpeed: 0.568
+  erodeSpeed: 0.25
   depositSpeed: 0.1
   evaporateSpeed: 0.02
   gravity: 4
@@ -5077,6 +5077,7 @@ MonoBehaviour:
   waterOpacity: 0.58
   riverFluxThreshold: 2400
   lakeRarity: 0.85
+  tectonicOceanDropoff: 2.35
   useSlopeDiagnosticColors: 0
   useElevationDevColors: 0
   showWaterDischargeDebug: 1
