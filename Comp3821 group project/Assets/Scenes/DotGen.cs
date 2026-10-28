@@ -20,6 +20,8 @@ public class DotGen : MonoBehaviour
     [Range(0f, 1f)] public float ridgeSharpness = 0.45f;
     [Range(0f, 1f)] public float fernBranchingStrength = 0.82f; // builds fern-like land ridges 
     [Range(0f, 1f)] public float macroRangeContrast = 0.85f;    // broader terrain transitions
+    public float macroScale = 800f; // low frequency texture
+    [Range(0f, 1f)] public float mountainBeltStrength = 0.6f; // 0 = isolated mountain complexes, 1 = long mountain belts
     public int seed = 0;
 
     [Header("Hydraulic Erosion Settings")]
@@ -1241,6 +1243,8 @@ public class DotGen : MonoBehaviour
         float fMult = freqMult;
         float rSharp = ridgeSharpness;
         float macroContrast = macroRangeContrast;
+        float macroInvScale = 1f / Mathf.Max(0.0001f, macroScale);
+        float beltStrength = mountainBeltStrength;
 
         // multi-threaded noise generation 
         Parallel.For(0, l, z =>
@@ -1276,9 +1280,16 @@ public class DotGen : MonoBehaviour
                 }
 
                 // creates mountain plateaus and low basins
-                float macro1 = Mathf.PerlinNoise(relX * 0.35f + macroOffset1.x, relZ * 0.35f + macroOffset1.y);
-                float macro2 = Mathf.PerlinNoise(relX * 0.65f + macroOffset2.x, relZ * 0.65f + macroOffset2.y);
-                float macroMask = Mathf.Pow(Mathf.Clamp01(macro1 * 0.7f + macro2 * 0.3f), 2.1f);
+                float macroX = (x - halfWidth) * macroInvScale;
+                float macroZ = (z - halfLength) * macroInvScale;
+                float macro1 = Mathf.PerlinNoise(macroX + macroOffset1.x, macroZ + macroOffset1.y);
+                float macro2 = Mathf.PerlinNoise(macroX * 1.857f + macroOffset2.x, macroZ * 1.857f + macroOffset2.y);
+                float macroBlend = Mathf.Clamp01(macro1 * 0.7f + macro2 * 0.3f);
+                float blobMask = Mathf.Pow(macroBlend, 2.1f);
+
+                // ridging the low-frequency noise turns its mid-level contour into long continuous belts
+                float belt = 1f - Mathf.Abs(macroBlend * 2f - 1f);
+                float macroMask = Mathf.Lerp(blobMask, belt * belt * belt, beltStrength);
 
                 heightMap[row + x] = noiseHeight * Mathf.Lerp(1f, 0.08f + 1.92f * macroMask, macroContrast);
             }

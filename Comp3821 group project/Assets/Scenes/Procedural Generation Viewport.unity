@@ -4152,7 +4152,7 @@ Camera:
     width: 1
     height: 1
   near clip plane: 0.3
-  far clip plane: 1000
+  far clip plane: 6000
   field of view: 60
   orthographic: 0
   orthographic size: 5
@@ -5044,11 +5044,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8a12f40ae9b74bf19725cc4a6233913, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DotGen
-  gridWidth: 600
-  gridLength: 600
+  gridWidth: 2000
+  gridLength: 2000
   spacing: 1.3
   heightSpacing: 70
-  noiseScale: 135
+  noiseScale: 250
   ampMult: 0.5
   octaves: 4
   freqMult: 2
@@ -5056,6 +5056,8 @@ MonoBehaviour:
   ridgeSharpness: 0.489
   fernBranchingStrength: 0.82
   macroRangeContrast: 0.85
+  macroScale: 800
+  mountainBeltStrength: 0.6
   seed: 0
   enableHydraulicErosion: 1
   erosionIterations: 40000
@@ -5069,9 +5071,9 @@ MonoBehaviour:
   gravity: 4
   maxDropletLifetime: 30
   enableThermalErosion: 1
-  thermalIterations: 4
-  talusAngleThreshold: 0.005
-  thermalRelaxation: 0.25
+  thermalIterations: 8
+  talusAngleThreshold: 0.01
+  thermalRelaxation: 0.366
   enableVolumedWater: 1
   oceanSeaLevel: -28
   waterOpacity: 0.58
