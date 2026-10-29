@@ -5084,6 +5084,9 @@ MonoBehaviour:
   useSlopeDiagnosticColors: 0
   useElevationDevColors: 0
   showWaterDischargeDebug: 0
+  rockStartAltitude: 15
+  alpineSlateAltitude: 32
+  snowStartAltitude: 42
   elevationGradient:
     serializedVersion: 2
     key0: {r: 1, g: 1, b: 1, a: 1}
