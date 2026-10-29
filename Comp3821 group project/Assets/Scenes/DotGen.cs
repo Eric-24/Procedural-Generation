@@ -23,6 +23,9 @@ public class DotGen : MonoBehaviour
     [Range(0f, 1f)] public float macroRangeContrast = 0.85f;    // broader terrain transitions
     public float macroScale = 800f; // low frequency texture
     [Range(0f, 1f)] public float mountainBeltStrength = 0.6f; // 0 = isolated mountain complexes, 1 = long mountain belts
+    public float continentalScale = 8000f;
+    [Range(0f, 1.5f)] public float continentalAmplitude = 0.45f;
+    [Range(-0.6f, 0.4f)] public float continentalSeaBias = -0.08f;
     public int seed = 0;
 
     [Header("Hydraulic Erosion Settings")]
@@ -49,7 +52,7 @@ public class DotGen : MonoBehaviour
     [Range(-40f, 20f)] public float oceanSeaLevel = -22f;
     [Range(0f, 1f)] public float waterOpacity = 0.78f;
     [Range(20f, 5000f)] public float riverFluxThreshold = 2400f; // controls how thin/defined main rivers are
-    [Range(0.5f, 3f)] public float tectonicOceanDropoff = 1.15f; // multiplier for continental shelf to deep ocean plate drop-off (~50% shallower)
+    [Range(0.5f, 3f)] public float tectonicOceanDropoff = 1.15f;
     [Range(1f, 12f)] public float sandShoreRadius = 4f; // how far sand extends from water
     [Range(0.005f, 0.2f)] public float sandMaxAltitude = 0.06f;
 
@@ -102,6 +105,7 @@ public class DotGen : MonoBehaviour
     private int[] riverCellIndices;
     private int riverCellCount;
     private float[] coarseMacroBuffer;
+    private float[] coarseContBuffer;
     private const int PRIORITY_BUCKETS = 2048;
 
     // erosion brush settings
@@ -315,14 +319,32 @@ public class DotGen : MonoBehaviour
                     float maxSubmergeSpan = COASTAL_SHELF_NORMALIZED * hSp;
                     float maxExtraDrop = hSp * 0.095f * dropMult;
 
+                    const int STEP = 4;
+                    const float INV_STEP = 1f / STEP;
+                    int cw = (w - 1) / STEP + 2;
+                    float[] coarseCont = coarseContBuffer;
+
                     Parallel.For(0, l, z =>
                     {
                         int rowOffset = z * w;
                         float worldZ = z * sp;
+                        int cz = z >> 2;
+                        float fz = (z & 3) * INV_STEP;
+                        int cRow0 = cz * cw;
+                        int cRow1 = (cz + 1) * cw;
+
                         for (int x = 0; x < w; x++)
                         {
                             int index = rowOffset + x;
-                            float worldY = (normalizedMap[index] - 0.35f) * hSp;
+                            int cx = x >> 2;
+                            float fx = (x & 3) * INV_STEP;
+                            float c00 = coarseCont[cRow0 + cx];
+                            float c10 = coarseCont[cRow0 + cx + 1];
+                            float c01 = coarseCont[cRow1 + cx];
+                            float c11 = coarseCont[cRow1 + cx + 1];
+                            float contOffset = Mathf.Lerp(Mathf.Lerp(c00, c10, fx), Mathf.Lerp(c01, c11, fx), fz);
+
+                            float worldY = (normalizedMap[index] + contOffset - 0.35f) * hSp;
 
                             if (worldY < fixedCoastlineY && maxSubmergeSpan > 0.001f)
                             {
@@ -371,7 +393,7 @@ public class DotGen : MonoBehaviour
 
                 float mapWorldW = (mw - 1) * msp;
                 float mapWorldL = (ml - 1) * msp;
-                Bounds worldBounds = new Bounds(new Vector3(mapWorldW * 0.5f, mhSp * 0.15f, mapWorldL * 0.5f), new Vector3(mapWorldW, mhSp * 1.5f, mapWorldL));
+                Bounds worldBounds = new Bounds(new Vector3(mapWorldW * 0.5f, mhSp * 0.15f, mapWorldL * 0.5f), new Vector3(mapWorldW, mhSp * 3f, mapWorldL));
                 terrainMesh.bounds = worldBounds;
                 terrainMesh.SetColors(colors, 0, colors.Length, FAST_MESH_FLAGS);
 
@@ -431,7 +453,7 @@ public class DotGen : MonoBehaviour
             {
                 float mapWorldW = (cachedWidth - 1) * spacing;
                 float mapWorldL = (cachedLength - 1) * spacing;
-                Bounds worldBounds = new Bounds(new Vector3(mapWorldW * 0.5f, heightSpacing * 0.15f, mapWorldL * 0.5f), new Vector3(mapWorldW, heightSpacing * 1.5f, mapWorldL));
+                Bounds worldBounds = new Bounds(new Vector3(mapWorldW * 0.5f, heightSpacing * 0.15f, mapWorldL * 0.5f), new Vector3(mapWorldW, heightSpacing * 3f, mapWorldL));
 
                 if (updateWater) ApplyWaterMeshToUnity(worldBounds);
                 if (updateColors) terrainMesh.SetColors(colors, 0, colors.Length, FAST_MESH_FLAGS);
@@ -1622,6 +1644,8 @@ public class DotGen : MonoBehaviour
         // Low-frequency offsets to make mountain ranges
         Vector2 macroOffset1 = new Vector2(prng.Next(-50000, 50000), prng.Next(-50000, 50000));
         Vector2 macroOffset2 = new Vector2(prng.Next(-50000, 50000), prng.Next(-50000, 50000));
+        Vector2 contOffset1 = new Vector2(prng.Next(-50000, 50000), prng.Next(-50000, 50000));
+        Vector2 contOffset2 = new Vector2(prng.Next(-50000, 50000), prng.Next(-50000, 50000));
 
         float scale = noiseScale <= 0f ? 0.0001f : noiseScale;
         float halfWidth = w / 2f;
@@ -1632,6 +1656,9 @@ public class DotGen : MonoBehaviour
         float macroContrast = macroRangeContrast;
         float macroInvScale = 1f / Mathf.Max(0.0001f, macroScale);
         float beltStrength = mountainBeltStrength;
+        float contInvScale = 1f / Mathf.Max(1f, continentalScale);
+        float contAmp = continentalAmplitude;
+        float contBias = continentalSeaBias;
 
         // precompute low-frequency macro noise on a coarse 4x4 grid and bilinearly interpolate
         const int STEP = 4;
@@ -1642,12 +1669,18 @@ public class DotGen : MonoBehaviour
         {
             coarseMacroBuffer = new float[cw * cl];
         }
+        if (coarseContBuffer == null || coarseContBuffer.Length < cw * cl)
+        {
+            coarseContBuffer = new float[cw * cl];
+        }
         float[] coarseMacro = coarseMacroBuffer;
+        float[] coarseCont = coarseContBuffer;
 
         Parallel.For(0, cl, cz =>
         {
             int z = cz * STEP;
             float macroZ = (z - halfLength) * macroInvScale;
+            float contZ = (z - halfLength) * contInvScale;
             int cRow = cz * cw;
             for (int cx = 0; cx < cw; cx++)
             {
@@ -1663,6 +1696,12 @@ public class DotGen : MonoBehaviour
                 float belt = 1f - Mathf.Abs(macroBlend * 2f - 1f);
                 float macroMask = Mathf.Lerp(blobMask, belt * belt * belt, beltStrength);
                 coarseMacro[cRow + cx] = Mathf.Lerp(1f, 0.08f + 1.92f * macroMask, macroContrast);
+
+                float contX = (x - halfWidth) * contInvScale;
+                float c1 = Mathf.PerlinNoise(contX + contOffset1.x, contZ + contOffset1.y);
+                float c2 = Mathf.PerlinNoise(contX * 2.03f + contOffset2.x, contZ * 2.03f + contOffset2.y);
+                float contRaw = (c1 * 0.72f + c2 * 0.28f) * 2f - 1f;
+                coarseCont[cRow + cx] = (contRaw + contBias) * contAmp;
             }
         });
 
