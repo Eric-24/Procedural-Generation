@@ -5055,9 +5055,12 @@ MonoBehaviour:
   mountainPower: 1.83
   ridgeSharpness: 0.489
   fernBranchingStrength: 0.82
-  macroRangeContrast: 0.85
+  macroRangeContrast: 0.8
   macroScale: 800
-  mountainBeltStrength: 0.6
+  mountainBeltStrength: 0.4
+  continentalScale: 4000
+  continentalAmplitude: 0.45
+  continentalSeaBias: -0.01
   seed: 0
   enableHydraulicErosion: 1
   erosionIterations: 40000
@@ -5077,9 +5080,9 @@ MonoBehaviour:
   enableVolumedWater: 1
   oceanSeaLevel: -28
   waterOpacity: 0.58
-  riverFluxThreshold: 2400
+  riverFluxThreshold: 1600
   tectonicOceanDropoff: 2.35
-  sandShoreRadius: 4
+  sandShoreRadius: 5.58
   sandMaxAltitude: 0.06
   useSlopeDiagnosticColors: 0
   useElevationDevColors: 0
