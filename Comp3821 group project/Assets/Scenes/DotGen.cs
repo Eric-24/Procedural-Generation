@@ -125,6 +125,7 @@ public class DotGen : MonoBehaviour
     private static readonly float[] INV_DIST = { 1f, 1f, 1f, 1f, 0.70710678f, 0.70710678f, 0.70710678f, 0.70710678f };
     private static readonly float[] EDGE_DIST = { 1f, 1f, 1f, 1f, 1.4142135f, 1.4142135f, 1.4142135f, 1.4142135f };
     private const float COASTAL_SHELF_NORMALIZED = 0.075f;
+    private const float MAX_WATER_EDGE_DROP = 2.5f; // water quads spanning a bigger vertical drop than this are skipped
     private const MeshUpdateFlags FAST_MESH_FLAGS = MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices;
 
     void Awake()
@@ -672,7 +673,7 @@ public class DotGen : MonoBehaviour
                 float targetSlope = (0.042f * macroWeight) / (1f + Mathf.Pow(waterVol, 0.44f) * 0.48f);
 
                 // height delta between nodes for talus effect 
-                float maxTalusDelta = 0.024f * edgeDist * (0.45f + 0.55f * h);
+                float maxTalusDelta = 0.024f * edgeDist * (0.45f + 0.6f * h);
                 precomputedStep[idx] = Mathf.Min(targetSlope * edgeDist, maxTalusDelta);
             }
         });
@@ -695,6 +696,14 @@ public class DotGen : MonoBehaviour
             float newH = carvedHeights[pIdx] + precomputedStep[idx];
             carvedHeights[idx] = newH;
             if (newH > maxCarved) maxCarved = newH;
+        }
+
+        // neighbouring cells on different branches of the tree can end up at very different heights, so cap the cliffs
+        LimitBranchCliffs(carvedHeights, heightMap, w, l);
+        maxCarved = 0.0001f;
+        for (int i = 0; i < vertCount; i++)
+        {
+            if (carvedHeights[i] > maxCarved) maxCarved = carvedHeights[i];
         }
 
         // normalize and blend the reconstructed fern terrain with the macro heightmap
@@ -871,6 +880,53 @@ public class DotGen : MonoBehaviour
                 }
             }
         });
+    }
+
+    // lowers any cell that sits more than one talus step above a neighbour (forward + backward chamfer sweeps)
+    private void LimitBranchCliffs(float[] heights, float[] baseHeights, int w, int l)
+    {
+        const float DIAG = 1.4142135f;
+
+        for (int pass = 0; pass < 2; pass++)
+        {
+            for (int z = 0; z < l; z++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    int idx = z * w + x;
+                    float allowed = 0.024f * (0.45f + 0.6f * baseHeights[idx]);
+                    float v = heights[idx];
+
+                    if (x > 0) v = Mathf.Min(v, heights[idx - 1] + allowed);
+                    if (z > 0)
+                    {
+                        v = Mathf.Min(v, heights[idx - w] + allowed);
+                        if (x > 0) v = Mathf.Min(v, heights[idx - w - 1] + allowed * DIAG);
+                        if (x < w - 1) v = Mathf.Min(v, heights[idx - w + 1] + allowed * DIAG);
+                    }
+                    heights[idx] = v;
+                }
+            }
+
+            for (int z = l - 1; z >= 0; z--)
+            {
+                for (int x = w - 1; x >= 0; x--)
+                {
+                    int idx = z * w + x;
+                    float allowed = 0.024f * (0.45f + 0.6f * baseHeights[idx]);
+                    float v = heights[idx];
+
+                    if (x < w - 1) v = Mathf.Min(v, heights[idx + 1] + allowed);
+                    if (z < l - 1)
+                    {
+                        v = Mathf.Min(v, heights[idx + w] + allowed);
+                        if (x < w - 1) v = Mathf.Min(v, heights[idx + w + 1] + allowed * DIAG);
+                        if (x > 0) v = Mathf.Min(v, heights[idx + w - 1] + allowed * DIAG);
+                    }
+                    heights[idx] = v;
+                }
+            }
+        }
     }
 
     // thermal erosion passes
@@ -1142,7 +1198,7 @@ public class DotGen : MonoBehaviour
             for (int x = 0; x < w - 1; x++)
             {
                 int v = row + x;
-                if ((wCols[v].a | wCols[v + 1].a | wCols[v + w].a | wCols[v + w + 1].a) != 0)
+                if (IsWaterQuadVisible(wVerts, wCols, v, w))
                 {
                     count++;
                 }
@@ -1166,7 +1222,7 @@ public class DotGen : MonoBehaviour
             for (int x = 0; x < w - 1; x++)
             {
                 int v = row + x;
-                if ((wCols[v].a | wCols[v + 1].a | wCols[v + w].a | wCols[v + w + 1].a) != 0)
+                if (IsWaterQuadVisible(wVerts, wCols, v, w))
                 {
                     if (((x + z) & 1) == 0)
                     {
@@ -1192,6 +1248,24 @@ public class DotGen : MonoBehaviour
                 }
             }
         });
+    }
+
+    private static bool IsWaterQuadVisible(Vector3[] wVerts, Color32[] wCols, int v, int w)
+    {
+        int v1 = v + 1;
+        int v2 = v + w;
+        int v3 = v + w + 1;
+
+        if ((wCols[v].a | wCols[v1].a | wCols[v2].a | wCols[v3].a) == 0) return false;
+
+        float minY = Mathf.Min(Mathf.Min(wVerts[v].y, wVerts[v1].y), Mathf.Min(wVerts[v2].y, wVerts[v3].y));
+        float maxWetY = float.MinValue;
+        if (wCols[v].a != 0 && wVerts[v].y > maxWetY) maxWetY = wVerts[v].y;
+        if (wCols[v1].a != 0 && wVerts[v1].y > maxWetY) maxWetY = wVerts[v1].y;
+        if (wCols[v2].a != 0 && wVerts[v2].y > maxWetY) maxWetY = wVerts[v2].y;
+        if (wCols[v3].a != 0 && wVerts[v3].y > maxWetY) maxWetY = wVerts[v3].y;
+
+        return (maxWetY - minY) <= MAX_WATER_EDGE_DROP;
     }
 
     private void ApplyWaterMeshToUnity(Bounds worldBounds)
