@@ -60,7 +60,6 @@ public class DotGen : MonoBehaviour
     public Gradient elevationGradient;
 
     private Mesh terrainMesh;
-    private MeshRenderer meshRenderer;
 
     // child mesh for translucent volumed water
     private GameObject waterMeshObj;
@@ -70,7 +69,6 @@ public class DotGen : MonoBehaviour
     private Vector3[] vertices;
     private Vector3[] normalsBuffer;
     private int[] triangles;
-    private Vector2[] uvs;
     private Color32[] colors;
     private float[] currentHeightMap;
     private float[] normalizedMapBuffer;
@@ -119,16 +117,8 @@ public class DotGen : MonoBehaviour
     private bool queuedFullRegen = false;
     private bool queuedWaterUpdate = false;
     private bool queuedColorUpdate = false;
-
-    private bool prevEnableWater;
-    private float prevOceanSeaLevel;
-    private float prevWaterOpacity;
-    private float prevRiverFluxThreshold;
-    private float prevSandShoreRadius;
-    private float prevSandMaxAltitude;
-    private bool prevUseSlope;
-    private bool prevUseElev;
-    private bool prevShowDebug;
+    private int prevWaterHash;
+    private int prevColorHash;
 
     private static readonly int[] DX = { -1, 1, 0, 0, -1, 1, -1, 1 };
     private static readonly int[] DZ = { 0, 0, -1, 1, -1, -1, 1, 1 };
@@ -144,11 +134,11 @@ public class DotGen : MonoBehaviour
         terrainMesh.indexFormat = IndexFormat.UInt32;
         terrainMesh.MarkDynamic();
         GetComponent<MeshFilter>().mesh = terrainMesh;
-        meshRenderer = GetComponent<MeshRenderer>();
 
-        if (meshRenderer != null && meshRenderer.material != null)
+        MeshRenderer mr = GetComponent<MeshRenderer>();
+        if (mr != null && mr.material != null)
         {
-            meshRenderer.material.SetFloat("_Glossiness", 0.1f);
+            mr.material.SetFloat("_Glossiness", 0.1f);
         }
 
         InitializeDefaultGradient();
@@ -185,15 +175,8 @@ public class DotGen : MonoBehaviour
 
     private void SyncValidateCache()
     {
-        prevEnableWater = enableVolumedWater;
-        prevOceanSeaLevel = oceanSeaLevel;
-        prevWaterOpacity = waterOpacity;
-        prevRiverFluxThreshold = riverFluxThreshold;
-        prevSandShoreRadius = sandShoreRadius;
-        prevSandMaxAltitude = sandMaxAltitude;
-        prevUseSlope = useSlopeDiagnosticColors;
-        prevUseElev = useElevationDevColors;
-        prevShowDebug = showWaterDischargeDebug;
+        prevWaterHash = System.HashCode.Combine(enableVolumedWater, oceanSeaLevel, waterOpacity, riverFluxThreshold);
+        prevColorHash = System.HashCode.Combine(prevWaterHash, sandShoreRadius, sandMaxAltitude, useSlopeDiagnosticColors, useElevationDevColors, showWaterDischargeDebug);
     }
 
     // toggle color checkboxes 
@@ -213,24 +196,18 @@ public class DotGen : MonoBehaviour
 
             if (currentHeightMap != null && currentHeightMap.Length == vertices.Length)
             {
-                bool waterChanged = prevEnableWater != enableVolumedWater ||
-                                    prevOceanSeaLevel != oceanSeaLevel ||
-                                    prevWaterOpacity != waterOpacity ||
-                                    prevRiverFluxThreshold != riverFluxThreshold;
+                int curWaterHash = System.HashCode.Combine(enableVolumedWater, oceanSeaLevel, waterOpacity, riverFluxThreshold);
+                int curColorHash = System.HashCode.Combine(curWaterHash, sandShoreRadius, sandMaxAltitude, useSlopeDiagnosticColors, useElevationDevColors, showWaterDischargeDebug);
 
-                bool colorChanged = waterChanged ||
-                                    prevSandShoreRadius != sandShoreRadius ||
-                                    prevSandMaxAltitude != sandMaxAltitude ||
-                                    prevUseSlope != useSlopeDiagnosticColors ||
-                                    prevUseElev != useElevationDevColors ||
-                                    prevShowDebug != showWaterDischargeDebug;
-
-                SyncValidateCache();
+                bool waterChanged = curWaterHash != prevWaterHash;
+                bool colorChanged = curColorHash != prevColorHash;
+                prevWaterHash = curWaterHash;
+                prevColorHash = curColorHash;
 
                 if (waterChanged || colorChanged)
                 {
                     if (waterChanged) shoreDistanceDirty = true;
-                    _ = RunVisualUpdateAsync(waterChanged, colorChanged);
+                    _ = RunPipelineAsync(false, waterChanged, colorChanged);
                 }
             }
         }
@@ -239,162 +216,14 @@ public class DotGen : MonoBehaviour
     public void GenerateDotMap()
     {
         if (terrainMesh == null) return;
-        _ = RunGenerationAsync();
+        _ = RunPipelineAsync(true, true, true);
     }
 
-    private async Task RunGenerationAsync()
+    private async Task RunPipelineAsync(bool fullRegen, bool updateWater, bool updateColors)
     {
         if (isGenerating)
         {
-            queuedFullRegen = true;
-            return;
-        }
-        isGenerating = true;
-
-        try
-        {
-            do
-            {
-                queuedFullRegen = false;
-                queuedWaterUpdate = false;
-                queuedColorUpdate = false;
-
-                if (terrainMesh == null) break;
-                if (waterMeshObj == null) SetupWaterMeshObject();
-
-                bool dimensionsChanged = (vertices == null || cachedWidth != gridWidth || cachedLength != gridLength);
-                if (dimensionsChanged)
-                {
-                    cachedWidth = gridWidth;
-                    cachedLength = gridLength;
-                    AllocateMeshArrays();
-                }
-
-                BakeGradientLUT();
-
-                await Task.Run(() =>
-                {
-                    // iniitalises height map
-                    float[] normalizedMap = GenerateNormalizedHeightMap();
-
-                    // creates fractal tree-fern ridges for rivers 
-                    ComputeThinRiverDrainage(normalizedMap);
-
-                    // run hydraulic erosion on normalised heights
-                    if (enableHydraulicErosion && erosionIterations > 0)
-                    {
-                        SimulateHydraulicErosion(normalizedMap);
-                    }
-
-                    // thermal erosion passes to remove spikes
-                    if (enableThermalErosion && thermalIterations > 0)
-                    {
-                        SimulateThermalErosion(normalizedMap);
-                    }
-
-                    // scale normalized [0, 1] heights into world space [-heightSpacing*0.35, heightSpacing*0.65]
-                    int w = cachedWidth;
-                    int l = cachedLength;
-                    float sp = spacing;
-                    float hSp = heightSpacing;
-                    float dropMult = tectonicOceanDropoff;
-
-                    float fixedCoastlineY = (COASTAL_SHELF_NORMALIZED - 0.35f) * hSp;
-                    float maxSubmergeSpan = COASTAL_SHELF_NORMALIZED * hSp;
-                    float maxExtraDrop = hSp * 0.095f * dropMult;
-
-                    Parallel.For(0, l, z =>
-                    {
-                        int rowOffset = z * w;
-                        float worldZ = z * sp;
-                        for (int x = 0; x < w; x++)
-                        {
-                            int index = rowOffset + x;
-                            float worldY = (normalizedMap[index] - 0.35f) * hSp;
-
-                            if (worldY < fixedCoastlineY && maxSubmergeSpan > 0.001f)
-                            {
-                                float submergeDepth = fixedCoastlineY - worldY;
-                                // Normalized depth t in [0, 1] below the coastline
-                                float t = Mathf.Clamp01(submergeDepth / maxSubmergeSpan);
-                                float easeInOut = t * t * (3f - 2f * t);
-                                worldY = fixedCoastlineY - submergeDepth * 0.75f - easeInOut * maxExtraDrop;
-                            }
-
-                            currentHeightMap[index] = worldY;
-                            vertices[index] = new Vector3(x * sp, worldY, worldZ);
-                        }
-                    });
-
-                    ComputeTerrainNormals(currentHeightMap, normalsBuffer);
-                    shoreDistanceDirty = true;
-
-                    // build translucent water mesh for rivers and lakes
-                    if (enableVolumedWater)
-                    {
-                        ComputeVolumedWaterData(currentHeightMap);
-                    }
-
-                    // color terrain by slope and elevation
-                    UpdateTerrainColorsCompute(currentHeightMap, normalsBuffer);
-                });
-
-                if (this == null || terrainMesh == null) break;
-
-                int mw = cachedWidth;
-                int ml = cachedLength;
-                float msp = spacing;
-                float mhSp = heightSpacing;
-
-                if (dimensionsChanged)
-                {
-                    terrainMesh.Clear();
-                    terrainMesh.SetVertices(vertices, 0, vertices.Length, FAST_MESH_FLAGS);
-                    terrainMesh.SetNormals(normalsBuffer, 0, normalsBuffer.Length, FAST_MESH_FLAGS);
-                    terrainMesh.SetUVs(0, uvs, 0, uvs.Length, FAST_MESH_FLAGS);
-                    terrainMesh.SetIndices(triangles, MeshTopology.Triangles, 0, false, 0);
-                }
-                else
-                {
-                    terrainMesh.SetVertices(vertices, 0, vertices.Length, FAST_MESH_FLAGS); // only vertices to save compute
-                    terrainMesh.SetNormals(normalsBuffer, 0, normalsBuffer.Length, FAST_MESH_FLAGS);
-                }
-
-                float mapWorldW = (mw - 1) * msp;
-                float mapWorldL = (ml - 1) * msp;
-                Bounds worldBounds = new Bounds(new Vector3(mapWorldW * 0.5f, mhSp * 0.15f, mapWorldL * 0.5f), new Vector3(mapWorldW, mhSp * 6f, mapWorldL));
-                terrainMesh.bounds = worldBounds;
-                terrainMesh.SetColors(colors, 0, colors.Length, FAST_MESH_FLAGS);
-
-                ApplyWaterMeshToUnity(worldBounds);
-                SyncValidateCache();
-
-            } while (queuedFullRegen);
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogException(e);
-            return;
-        }
-        finally
-        {
-            isGenerating = false;
-        }
-
-        if (queuedWaterUpdate || queuedColorUpdate)
-        {
-            bool wUpd = queuedWaterUpdate;
-            bool cUpd = queuedColorUpdate;
-            queuedWaterUpdate = false;
-            queuedColorUpdate = false;
-            await RunVisualUpdateAsync(wUpd, cUpd);
-        }
-    }
-
-    private async Task RunVisualUpdateAsync(bool updateWater, bool updateColors)
-    {
-        if (isGenerating)
-        {
+            if (fullRegen) queuedFullRegen = true;
             if (updateWater) queuedWaterUpdate = true;
             if (updateColors) queuedColorUpdate = true;
             return;
@@ -403,52 +232,144 @@ public class DotGen : MonoBehaviour
 
         try
         {
-            if (waterMeshObj == null) SetupWaterMeshObject();
-            if (updateColors) BakeGradientLUT();
-
-            await Task.Run(() =>
+            while (fullRegen || updateWater || updateColors)
             {
-                if (updateWater && enableVolumedWater)
-                {
-                    ComputeVolumedWaterData(currentHeightMap);
-                }
-                if (updateColors)
-                {
-                    UpdateTerrainColorsCompute(currentHeightMap, normalsBuffer);
-                }
-            });
+                if (this == null || terrainMesh == null) break;
+                if (waterMeshObj == null) SetupWaterMeshObject();
 
-            if (this != null && terrainMesh != null)
-            {
+                bool dimensionsChanged = fullRegen && (vertices == null || cachedWidth != gridWidth || cachedLength != gridLength);
+                if (dimensionsChanged)
+                {
+                    cachedWidth = gridWidth;
+                    cachedLength = gridLength;
+                    AllocateMeshArrays();
+                }
+
+                if (fullRegen || updateColors) BakeGradientLUT();
+
+                bool doFull = fullRegen;
+                bool doWater = fullRegen || updateWater;
+                bool doColor = fullRegen || updateColors;
+
+                fullRegen = false;
+                updateWater = false;
+                updateColors = false;
+
+                await Task.Run(() =>
+                {
+                    if (doFull)
+                    {
+                        // iniitalises height map
+                        float[] normalizedMap = GenerateNormalizedHeightMap();
+
+                        // creates fractal tree-fern ridges for rivers 
+                        ComputeThinRiverDrainage(normalizedMap);
+
+                        // run hydraulic erosion on normalised heights
+                        if (enableHydraulicErosion && erosionIterations > 0)
+                        {
+                            SimulateHydraulicErosion(normalizedMap);
+                        }
+
+                        // thermal erosion passes to remove spikes
+                        if (enableThermalErosion && thermalIterations > 0)
+                        {
+                            SimulateThermalErosion(normalizedMap);
+                        }
+
+                        // scale normalized [0, 1] heights into world space [-heightSpacing*0.35, heightSpacing*0.65]
+                        int w = cachedWidth;
+                        int l = cachedLength;
+                        float sp = spacing;
+                        float hSp = heightSpacing;
+                        float dropMult = tectonicOceanDropoff;
+
+                        float fixedCoastlineY = (COASTAL_SHELF_NORMALIZED - 0.35f) * hSp;
+                        float maxSubmergeSpan = COASTAL_SHELF_NORMALIZED * hSp;
+                        float maxExtraDrop = hSp * 0.095f * dropMult;
+
+                        Parallel.For(0, l, z =>
+                        {
+                            int rowOffset = z * w;
+                            float worldZ = z * sp;
+                            for (int x = 0; x < w; x++)
+                            {
+                                int index = rowOffset + x;
+                                float worldY = (normalizedMap[index] - 0.35f) * hSp;
+
+                                if (worldY < fixedCoastlineY && maxSubmergeSpan > 0.001f)
+                                {
+                                    float submergeDepth = fixedCoastlineY - worldY;
+                                    // Normalized depth t in [0, 1] below the coastline
+                                    float t = Mathf.Clamp01(submergeDepth / maxSubmergeSpan);
+                                    float easeInOut = t * t * (3f - 2f * t);
+                                    worldY = fixedCoastlineY - submergeDepth * 0.75f - easeInOut * maxExtraDrop;
+                                }
+
+                                currentHeightMap[index] = worldY;
+                                vertices[index] = new Vector3(x * sp, worldY, worldZ);
+                            }
+                        });
+
+                        ComputeTerrainNormals(currentHeightMap, normalsBuffer);
+                        shoreDistanceDirty = true;
+                    }
+
+                    // build translucent water mesh for rivers and lakes
+                    if (doWater && enableVolumedWater)
+                    {
+                        ComputeVolumedWaterData(currentHeightMap);
+                    }
+
+                    // color terrain by slope and elevation
+                    if (doColor)
+                    {
+                        UpdateTerrainColorsCompute(currentHeightMap, normalsBuffer);
+                    }
+                });
+
+                if (this == null || terrainMesh == null) break;
+
                 float mapWorldW = (cachedWidth - 1) * spacing;
                 float mapWorldL = (cachedLength - 1) * spacing;
                 Bounds worldBounds = new Bounds(new Vector3(mapWorldW * 0.5f, heightSpacing * 0.15f, mapWorldL * 0.5f), new Vector3(mapWorldW, heightSpacing * 6f, mapWorldL));
 
-                if (updateWater) ApplyWaterMeshToUnity(worldBounds);
-                if (updateColors) terrainMesh.SetColors(colors, 0, colors.Length, FAST_MESH_FLAGS);
+                if (doFull)
+                {
+                    if (dimensionsChanged)
+                    {
+                        terrainMesh.Clear();
+                        terrainMesh.SetVertices(vertices, 0, vertices.Length, FAST_MESH_FLAGS);
+                        terrainMesh.SetNormals(normalsBuffer, 0, normalsBuffer.Length, FAST_MESH_FLAGS);
+                        terrainMesh.SetIndices(triangles, MeshTopology.Triangles, 0, false, 0);
+                    }
+                    else
+                    {
+                        terrainMesh.SetVertices(vertices, 0, vertices.Length, FAST_MESH_FLAGS); // only vertices to save compute
+                        terrainMesh.SetNormals(normalsBuffer, 0, normalsBuffer.Length, FAST_MESH_FLAGS);
+                    }
+                    terrainMesh.bounds = worldBounds;
+                    SyncValidateCache();
+                }
+
+                if (doWater) ApplyWaterMeshToUnity(worldBounds);
+                if (doColor) terrainMesh.SetColors(colors, 0, colors.Length, FAST_MESH_FLAGS);
+
+                fullRegen = queuedFullRegen;
+                updateWater = queuedWaterUpdate;
+                updateColors = queuedColorUpdate;
+                queuedFullRegen = false;
+                queuedWaterUpdate = false;
+                queuedColorUpdate = false;
             }
         }
         catch (System.Exception e)
         {
             Debug.LogException(e);
-            return;
         }
         finally
         {
             isGenerating = false;
-        }
-
-        if (queuedFullRegen)
-        {
-            await RunGenerationAsync();
-        }
-        else if (queuedWaterUpdate || queuedColorUpdate)
-        {
-            bool wUpd = queuedWaterUpdate;
-            bool cUpd = queuedColorUpdate;
-            queuedWaterUpdate = false;
-            queuedColorUpdate = false;
-            await RunVisualUpdateAsync(wUpd, cUpd);
         }
     }
 
@@ -961,9 +882,10 @@ public class DotGen : MonoBehaviour
         float threshold = talusAngleThreshold;
         float relaxation = thermalRelaxation;
 
-        int n0 = DZ[0] * w + DX[0], n1 = DZ[1] * w + DX[1], n2 = DZ[2] * w + DX[2], n3 = DZ[3] * w + DX[3];
-        int n4 = DZ[4] * w + DX[4], n5 = DZ[5] * w + DX[5], n6 = DZ[6] * w + DX[6], n7 = DZ[7] * w + DX[7];
-        int[] neighborOffsets = { n0, n1, n2, n3, n4, n5, n6, n7 };
+        int[] neighborOffsets = {
+            DZ[0] * w + DX[0], DZ[1] * w + DX[1], DZ[2] * w + DX[2], DZ[3] * w + DX[3],
+            DZ[4] * w + DX[4], DZ[5] * w + DX[5], DZ[6] * w + DX[6], DZ[7] * w + DX[7]
+        };
 
         for (int iter = 0; iter < iterations; iter++)
         {
@@ -1349,13 +1271,6 @@ public class DotGen : MonoBehaviour
         }
     }
 
-    public void UpdateTerrainColors(float[] heightMap, Vector3[] normals)
-    {
-        BakeGradientLUT();
-        UpdateTerrainColorsCompute(heightMap, normals);
-        terrainMesh.SetColors(colors, 0, colors.Length, FAST_MESH_FLAGS);
-    }
-
     private void UpdateTerrainColorsCompute(float[] heightMap, Vector3[] normals)
     {
         // flat elevation
@@ -1493,7 +1408,6 @@ public class DotGen : MonoBehaviour
         int vertCount = w * l;
         vertices = new Vector3[vertCount];
         normalsBuffer = new Vector3[vertCount];
-        uvs = new Vector2[vertCount];
         colors = new Color32[vertCount];
         currentHeightMap = new float[vertCount];
         normalizedMapBuffer = new float[vertCount];
@@ -1519,47 +1433,37 @@ public class DotGen : MonoBehaviour
         wetRowCounts = new int[l - 1];
         wetRowOffsets = new int[l - 1];
 
-        float invW = 1f / w;
-        float invL = 1f / l;
-
-        Parallel.For(0, l, z =>
+        Parallel.For(0, l - 1, z =>
         {
             int row = z * w;
-            float v = (z + 0.5f) * invL;
             int triIndex = z * (w - 1) * 6;
 
-            for (int x = 0; x < w; x++)
+            for (int x = 0; x < w - 1; x++)
             {
                 int vertIndex = row + x;
-                // offset UVs by half a texel so vertices align with pixel centers
-                uvs[vertIndex] = new Vector2((x + 0.5f) * invW, v);
-
-                if (x < w - 1 && z < l - 1)
+                // removes unrealistic line creases across ridges
+                if (((x + z) & 1) == 0)
                 {
-                    // removes unrealistic line creases across ridges
-                    if (((x + z) & 1) == 0)
-                    {
-                        triangles[triIndex + 0] = vertIndex;
-                        triangles[triIndex + 1] = vertIndex + w;
-                        triangles[triIndex + 2] = vertIndex + 1;
+                    triangles[triIndex + 0] = vertIndex;
+                    triangles[triIndex + 1] = vertIndex + w;
+                    triangles[triIndex + 2] = vertIndex + 1;
 
-                        triangles[triIndex + 3] = vertIndex + 1;
-                        triangles[triIndex + 4] = vertIndex + w;
-                        triangles[triIndex + 5] = vertIndex + w + 1;
-                    }
-                    else
-                    {
-                        triangles[triIndex + 0] = vertIndex;
-                        triangles[triIndex + 1] = vertIndex + w;
-                        triangles[triIndex + 2] = vertIndex + w + 1;
-
-                        triangles[triIndex + 3] = vertIndex;
-                        triangles[triIndex + 4] = vertIndex + w + 1;
-                        triangles[triIndex + 5] = vertIndex + 1;
-                    }
-
-                    triIndex += 6;
+                    triangles[triIndex + 3] = vertIndex + 1;
+                    triangles[triIndex + 4] = vertIndex + w;
+                    triangles[triIndex + 5] = vertIndex + w + 1;
                 }
+                else
+                {
+                    triangles[triIndex + 0] = vertIndex;
+                    triangles[triIndex + 1] = vertIndex + w;
+                    triangles[triIndex + 2] = vertIndex + w + 1;
+
+                    triangles[triIndex + 3] = vertIndex;
+                    triangles[triIndex + 4] = vertIndex + w + 1;
+                    triangles[triIndex + 5] = vertIndex + 1;
+                }
+
+                triIndex += 6;
             }
         });
 
