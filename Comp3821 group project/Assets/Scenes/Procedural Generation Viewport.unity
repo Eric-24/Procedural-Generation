@@ -5044,8 +5044,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8a12f40ae9b74bf19725cc4a6233913, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DotGen
-  gridWidth: 4000
-  gridLength: 4000
+  gridWidth: 2000
+  gridLength: 2000
   spacing: 1.3
   heightSpacing: 70
   noiseScale: 250
@@ -5060,7 +5060,7 @@ MonoBehaviour:
   mountainBeltStrength: 0.6
   seed: 0
   largeNoiseScale: 2000
-  largeNoiseAmplitude: 15
+  largeNoiseAmplitude: 25
   enableHydraulicErosion: 1
   erosionIterations: 40000
   erosionRadius: 4
@@ -5077,18 +5077,23 @@ MonoBehaviour:
   talusAngleThreshold: 0.01
   thermalRelaxation: 0.366
   enableVolumedWater: 1
-  oceanSeaLevel: -28
-  coastlineAltitude: -28
+  oceanSeaLevel: -34
+  coastlineAltitude: -30
   waterOpacity: 0.58
   riverFluxThreshold: 2400
   tectonicOceanDropoff: 2.35
   sandShoreRadius: 4
   sandMaxAltitude: -21
-  plainsAltitude: -26
-  valleyAltitude: -22
-  rockAltitude: 22
-  slateAltitude: 42
-  snowAltitude: 51
+  desertCoverage: 0.1
+  desertNoiseScale: 1600
+  desertBaseHeight: 0.4
+  desertReliefScale: 0.05
+  duneAmplitude: 0.015
+  plainsAltitude: -30
+  valleyAltitude: -25
+  rockAltitude: 20
+  slateAltitude: 38
+  snowAltitude: 45
   useSlopeDiagnosticColors: 0
   useElevationDevColors: 0
   showWaterDischargeDebug: 0
