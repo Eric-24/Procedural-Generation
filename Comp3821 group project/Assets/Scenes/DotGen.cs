@@ -24,6 +24,8 @@ public class DotGen : MonoBehaviour
     public float macroScale = 800f; // low frequency texture
     [Range(0f, 1f)] public float mountainBeltStrength = 0.6f; // 0 = isolated mountain complexes, 1 = long mountain belts
     public int seed = 0;
+    public float largeNoiseScale = 2000f;
+    public float largeNoiseAmplitude = 15f;
 
     [Header("Hydraulic Erosion Settings")]
     public bool enableHydraulicErosion = true;
@@ -297,10 +299,19 @@ public class DotGen : MonoBehaviour
                         float maxSubmergeSpan = COASTAL_SHELF_NORMALIZED * hSp;
                         float maxExtraDrop = hSp * 0.095f * dropMult;
 
+                        float bigAmp = largeNoiseAmplitude;
+                        float bigInvScale = 1f / Mathf.Max(0.0001f, largeNoiseScale);
+                        System.Random bigPrng = new System.Random(seed ^ 0x2F6B1D);
+                        float bigOffX = (float)bigPrng.NextDouble() * 100f;
+                        float bigOffZ = (float)bigPrng.NextDouble() * 100f;
+                        float bigHalfW = w / 2f;
+                        float bigHalfL = l / 2f;
+
                         Parallel.For(0, l, z =>
                         {
                             int rowOffset = z * w;
                             float worldZ = z * sp;
+                            float bigZ = (z - bigHalfL) * bigInvScale + bigOffZ;
                             for (int x = 0; x < w; x++)
                             {
                                 int index = rowOffset + x;
@@ -314,6 +325,9 @@ public class DotGen : MonoBehaviour
                                     float easeInOut = t * t * (3f - 2f * t);
                                     worldY = fixedCoastlineY - submergeDepth * 0.75f - easeInOut * maxExtraDrop;
                                 }
+
+                                float bigX = (x - bigHalfW) * bigInvScale + bigOffX;
+                                worldY += (Mathf.PerlinNoise(bigX, bigZ) - 0.5f) * 2f * bigAmp;
 
                                 currentHeightMap[index] = worldY;
                                 vertices[index] = new Vector3(x * sp, worldY, worldZ);
