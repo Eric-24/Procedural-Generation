@@ -47,11 +47,19 @@ public class DotGen : MonoBehaviour
     [Header("Water Settings")]
     public bool enableVolumedWater = true;
     [Range(-40f, 20f)] public float oceanSeaLevel = -22f;
+    [Range(-80f, 20f)] public float coastlineAltitude = -28f;
     [Range(0f, 1f)] public float waterOpacity = 0.78f;
     [Range(20f, 5000f)] public float riverFluxThreshold = 2400f; // controls how thin/defined main rivers are
     [Range(0.5f, 3f)] public float tectonicOceanDropoff = 1.15f; // multiplier for continental shelf to deep ocean plate drop-off (~50% shallower)
     [Range(1f, 12f)] public float sandShoreRadius = 4f; // how far sand extends from water
-    [Range(0.005f, 0.2f)] public float sandMaxAltitude = 0.06f;
+    [Range(-40f, 60f)] public float sandMaxAltitude = -21f;
+
+    [Header("Altitude Color Bands")]
+    public float plainsAltitude = -28f;
+    public float valleyAltitude = -24f;
+    public float rockAltitude = 8f;
+    public float slateAltitude = 22f;
+    public float snowAltitude = 29f;
 
     [Header("Dev Visualization Settings")]
     public bool useSlopeDiagnosticColors = false;
@@ -177,7 +185,7 @@ public class DotGen : MonoBehaviour
     private void SyncValidateCache()
     {
         prevWaterHash = System.HashCode.Combine(enableVolumedWater, oceanSeaLevel, waterOpacity, riverFluxThreshold);
-        prevColorHash = System.HashCode.Combine(prevWaterHash, sandShoreRadius, sandMaxAltitude, useSlopeDiagnosticColors, useElevationDevColors, showWaterDischargeDebug);
+        prevColorHash = System.HashCode.Combine(prevWaterHash, sandShoreRadius, sandMaxAltitude, System.HashCode.Combine(plainsAltitude, valleyAltitude, rockAltitude, slateAltitude, snowAltitude), useSlopeDiagnosticColors, useElevationDevColors, showWaterDischargeDebug);
     }
 
     // toggle color checkboxes 
@@ -198,7 +206,7 @@ public class DotGen : MonoBehaviour
             if (currentHeightMap != null && currentHeightMap.Length == vertices.Length)
             {
                 int curWaterHash = System.HashCode.Combine(enableVolumedWater, oceanSeaLevel, waterOpacity, riverFluxThreshold);
-                int curColorHash = System.HashCode.Combine(curWaterHash, sandShoreRadius, sandMaxAltitude, useSlopeDiagnosticColors, useElevationDevColors, showWaterDischargeDebug);
+                int curColorHash = System.HashCode.Combine(curWaterHash, sandShoreRadius, sandMaxAltitude, System.HashCode.Combine(plainsAltitude, valleyAltitude, rockAltitude, slateAltitude, snowAltitude), useSlopeDiagnosticColors, useElevationDevColors, showWaterDischargeDebug);
 
                 bool waterChanged = curWaterHash != prevWaterHash;
                 bool colorChanged = curColorHash != prevColorHash;
@@ -285,7 +293,7 @@ public class DotGen : MonoBehaviour
                         float hSp = heightSpacing;
                         float dropMult = tectonicOceanDropoff;
 
-                        float fixedCoastlineY = (COASTAL_SHELF_NORMALIZED - 0.35f) * hSp;
+                        float fixedCoastlineY = coastlineAltitude;
                         float maxSubmergeSpan = COASTAL_SHELF_NORMALIZED * hSp;
                         float maxExtraDrop = hSp * 0.095f * dropMult;
 
@@ -296,7 +304,7 @@ public class DotGen : MonoBehaviour
                             for (int x = 0; x < w; x++)
                             {
                                 int index = rowOffset + x;
-                                float worldY = (normalizedMap[index] - 0.35f) * hSp;
+                                float worldY = fixedCoastlineY + (normalizedMap[index] - COASTAL_SHELF_NORMALIZED) * hSp;
 
                                 if (worldY < fixedCoastlineY && maxSubmergeSpan > 0.001f)
                                 {
@@ -1093,7 +1101,7 @@ public class DotGen : MonoBehaviour
         float gridAreaScale = (vertCount / 90000f);
         float gridLinearScale = Mathf.Sqrt(gridAreaScale);
         float effectiveTrunkThreshold = Mathf.Max(riverFluxThreshold, 1800f * gridAreaScale);
-        float fixedCoastlineY = (COASTAL_SHELF_NORMALIZED - 0.35f) * heightSpacing;
+        float fixedCoastlineY = coastlineAltitude;
 
         // place water along the main river channels 
         if (waterDischargeMap != null && riverCellIndices != null)
@@ -1337,7 +1345,7 @@ public class DotGen : MonoBehaviour
 
     private void BakeGradientLUT()
     {
-        if (elevationGradient == null) InitializeDefaultGradient();
+        InitializeDefaultGradient();
         float invMax = 1f / (GRADIENT_LUT_SIZE - 1);
         for (int i = 0; i < GRADIENT_LUT_SIZE; i++)
         {
@@ -1360,14 +1368,21 @@ public class DotGen : MonoBehaviour
         Color32 steepCliffColor = new Color(0.27f, 0.27f, 0.29f);  // dark slate cliff
         Color32 streamDebugColor = new Color(0.15f, 0.65f, 0.95f); // cyan river 
 
-        float fixedCoastlineY = (COASTAL_SHELF_NORMALIZED - 0.35f) * heightSpacing;
-        float maxH = float.MinValue;
-        for (int i = 0; i < heightMap.Length; i++)
+        float fixedCoastlineY = coastlineAltitude;
+        float plainsAlt = plainsAltitude;
+        float snowAlt = snowAltitude;
+        float invGradientSpan = 1f / Mathf.Max(0.01f, snowAlt - plainsAlt);
+        float invLandRange = 1f;
+        if (useElevationDevColors)
         {
-            if (heightMap[i] > maxH) maxH = heightMap[i];
+            float maxH = float.MinValue;
+            for (int i = 0; i < heightMap.Length; i++)
+            {
+                if (heightMap[i] > maxH) maxH = heightMap[i];
+            }
+            if (maxH - fixedCoastlineY < 0.01f) maxH = fixedCoastlineY + 1f;
+            invLandRange = 1f / (maxH - fixedCoastlineY);
         }
-        if (maxH - fixedCoastlineY < 0.01f) maxH = fixedCoastlineY + 1f;
-        float invLandRange = 1f / (maxH - fixedCoastlineY);
 
         int w = cachedWidth;
         int l = cachedLength;
@@ -1377,6 +1392,7 @@ public class DotGen : MonoBehaviour
         float fluxThresh = riverFluxThreshold;
         float hSp = heightSpacing;
         float sMaxAlt = sandMaxAltitude;
+        float sandFadeStart = (fixedCoastlineY + sMaxAlt) * 0.5f;
         float sRadius = sandShoreRadius;
         float[] dischargeMap = waterDischargeMap;
         float[] shoreDist = shoreDistanceBuffer;
@@ -1395,13 +1411,13 @@ public class DotGen : MonoBehaviour
             {
                 int i = row + x;
                 float h = heightMap[i];
-                float normalizedHeight = Mathf.Clamp01((h - fixedCoastlineY) * invLandRange);
+                float gradientT = Mathf.Clamp01((h - plainsAlt) * invGradientSpan);
 
                 if (!useSlope && !useElev)
                 {
-                    float altitudeFade = 1f - Mathf.InverseLerp(sMaxAlt * 0.5f, sMaxAlt, normalizedHeight);
+                    float altitudeFade = 1f - Mathf.InverseLerp(sandFadeStart, sMaxAlt, h);
                     float shoreFade = 1f - Mathf.Clamp01(shoreDist[i] / sRadius);
-                    int lutIdx = (int)(normalizedHeight * (GRADIENT_LUT_SIZE - 1) + 0.5f);
+                    int lutIdx = (int)(gradientT * (GRADIENT_LUT_SIZE - 1) + 0.5f);
                     cols[i] = Color32.Lerp(lut[lutIdx], sandBasinColor, altitudeFade * shoreFade);
                 }
                 else
@@ -1409,6 +1425,7 @@ public class DotGen : MonoBehaviour
                     Color32 baseHeightColor;
                     if (useElev)
                     {
+                        float normalizedHeight = Mathf.Clamp01((h - fixedCoastlineY) * invLandRange);
                         if (h < fixedCoastlineY)
                         {
                             float oceanDepthT = Mathf.Clamp01((fixedCoastlineY - h) / (hSp * 0.16f));
@@ -1697,14 +1714,15 @@ public class DotGen : MonoBehaviour
 
     private void InitializeDefaultGradient()
     {
+        float invSpan = 1f / Mathf.Max(0.01f, snowAltitude - plainsAltitude);
         elevationGradient = new Gradient();
         elevationGradient.colorKeys = new GradientColorKey[]
         {
-            new GradientColorKey(new Color(0.472f, 0.592f, 0.350f), 0.0004f), // plains green
-            new GradientColorKey(new Color(0.28f, 0.52f, 0.25f), 0.05f),// valley green
-            new GradientColorKey(new Color(0.52f, 0.50f, 0.48f), 0.55f),// grey mountain rock
-            new GradientColorKey(new Color(0.35f, 0.34f, 0.36f), 0.78f),// alpine slate
-            new GradientColorKey(Color.white, 0.88f)                    // snow peak
+            new GradientColorKey(new Color(0.472f, 0.592f, 0.350f), 0f), // plains green
+            new GradientColorKey(new Color(0.28f, 0.52f, 0.25f), Mathf.Clamp01((valleyAltitude - plainsAltitude) * invSpan)),// valley green
+            new GradientColorKey(new Color(0.52f, 0.50f, 0.48f), Mathf.Clamp01((rockAltitude - plainsAltitude) * invSpan)),// grey mountain rock
+            new GradientColorKey(new Color(0.35f, 0.34f, 0.36f), Mathf.Clamp01((slateAltitude - plainsAltitude) * invSpan)),// alpine slate
+            new GradientColorKey(Color.white, 1f)                    // snow peak
         };
     }
 }
