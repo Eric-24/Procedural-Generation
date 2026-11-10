@@ -5059,6 +5059,8 @@ MonoBehaviour:
   macroScale: 800
   mountainBeltStrength: 0.6
   seed: 0
+  largeNoiseScale: 2000
+  largeNoiseAmplitude: 25
   enableHydraulicErosion: 1
   erosionIterations: 40000
   erosionRadius: 4
@@ -5075,12 +5077,23 @@ MonoBehaviour:
   talusAngleThreshold: 0.01
   thermalRelaxation: 0.366
   enableVolumedWater: 1
-  oceanSeaLevel: -28
+  oceanSeaLevel: -34
+  coastlineAltitude: -30
   waterOpacity: 0.58
   riverFluxThreshold: 2400
   tectonicOceanDropoff: 2.35
   sandShoreRadius: 4
-  sandMaxAltitude: 0.06
+  sandMaxAltitude: -21
+  desertCoverage: 0.1
+  desertNoiseScale: 1600
+  desertBaseHeight: 0.4
+  desertReliefScale: 0.05
+  duneAmplitude: 0.015
+  plainsAltitude: -30
+  valleyAltitude: -25
+  rockAltitude: 20
+  slateAltitude: 38
+  snowAltitude: 45
   useSlopeDiagnosticColors: 0
   useElevationDevColors: 0
   showWaterDischargeDebug: 0

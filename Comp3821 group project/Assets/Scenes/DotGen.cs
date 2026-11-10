@@ -24,6 +24,8 @@ public class DotGen : MonoBehaviour
     public float macroScale = 800f; // low frequency texture
     [Range(0f, 1f)] public float mountainBeltStrength = 0.6f; // 0 = isolated mountain complexes, 1 = long mountain belts
     public int seed = 0;
+    public float largeNoiseScale = 2000f;
+    public float largeNoiseAmplitude = 15f;
 
     [Header("Hydraulic Erosion Settings")]
     public bool enableHydraulicErosion = true;
@@ -47,11 +49,26 @@ public class DotGen : MonoBehaviour
     [Header("Water Settings")]
     public bool enableVolumedWater = true;
     [Range(-40f, 20f)] public float oceanSeaLevel = -22f;
+    [Range(-80f, 20f)] public float coastlineAltitude = -28f;
     [Range(0f, 1f)] public float waterOpacity = 0.78f;
     [Range(20f, 5000f)] public float riverFluxThreshold = 2400f; // controls how thin/defined main rivers are
     [Range(0.5f, 3f)] public float tectonicOceanDropoff = 1.15f; // multiplier for continental shelf to deep ocean plate drop-off (~50% shallower)
     [Range(1f, 12f)] public float sandShoreRadius = 4f; // how far sand extends from water
-    [Range(0.005f, 0.2f)] public float sandMaxAltitude = 0.06f;
+    [Range(-40f, 60f)] public float sandMaxAltitude = -21f;
+
+    [Header("Desert Settings")]
+    [Range(0f, 1f)] public float desertCoverage = 0.3f;
+    public float desertNoiseScale = 450f;
+    [Range(0f, 1f)] public float desertBaseHeight = 0.28f;
+    [Range(0f, 1f)] public float desertReliefScale = 0.45f;
+    [Range(0f, 0.05f)] public float duneAmplitude = 0.015f;
+
+    [Header("Altitude Color Bands")]
+    public float plainsAltitude = -28f;
+    public float valleyAltitude = -24f;
+    public float rockAltitude = 8f;
+    public float slateAltitude = 22f;
+    public float snowAltitude = 29f;
 
     [Header("Dev Visualization Settings")]
     public bool useSlopeDiagnosticColors = false;
@@ -74,6 +91,7 @@ public class DotGen : MonoBehaviour
     private float[] normalizedMapBuffer;
     private float[] shoreDistanceBuffer;
     private float[] carvedHeightsBuffer;
+    private float[] aridityBuffer;
     private Vector3[] waterVertsBuffer;
     private Color32[] waterColsBuffer;
     private int[] waterTrianglesBuffer;
@@ -83,6 +101,8 @@ public class DotGen : MonoBehaviour
 
     private const int GRADIENT_LUT_SIZE = 512;
     private Color32[] gradientLUT = new Color32[GRADIENT_LUT_SIZE];
+    private Color32[] desertLUT = new Color32[GRADIENT_LUT_SIZE];
+    private Gradient desertGradient;
 
     // arrays to store water data during erosion
     [HideInInspector, System.NonSerialized] public float[] waterDischargeMap;
@@ -125,6 +145,12 @@ public class DotGen : MonoBehaviour
     private static readonly float[] INV_DIST = { 1f, 1f, 1f, 1f, 0.70710678f, 0.70710678f, 0.70710678f, 0.70710678f };
     private static readonly float[] EDGE_DIST = { 1f, 1f, 1f, 1f, 1.4142135f, 1.4142135f, 1.4142135f, 1.4142135f };
     private const float COASTAL_SHELF_NORMALIZED = 0.075f;
+    private const float DESERT_RAINFALL_CUT = 0.95f;
+    private const float DESERT_FLOW_LOSS = 0.03f;
+    private const float DESERT_BLEND = 0.12f;
+    private const float DUNE_SCALE = 26f;
+    private const float DUNE_STRETCH = 2.5f;
+    private const float DUNE_ANGLE = 0.5f;
     private const float MAX_WATER_EDGE_DROP = 2.5f; // water quads spanning a bigger vertical drop than this are skipped
     private const MeshUpdateFlags FAST_MESH_FLAGS = MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices;
 
@@ -177,7 +203,7 @@ public class DotGen : MonoBehaviour
     private void SyncValidateCache()
     {
         prevWaterHash = System.HashCode.Combine(enableVolumedWater, oceanSeaLevel, waterOpacity, riverFluxThreshold);
-        prevColorHash = System.HashCode.Combine(prevWaterHash, sandShoreRadius, sandMaxAltitude, useSlopeDiagnosticColors, useElevationDevColors, showWaterDischargeDebug);
+        prevColorHash = System.HashCode.Combine(prevWaterHash, sandShoreRadius, sandMaxAltitude, System.HashCode.Combine(plainsAltitude, valleyAltitude, rockAltitude, slateAltitude, snowAltitude), useSlopeDiagnosticColors, useElevationDevColors, showWaterDischargeDebug);
     }
 
     // toggle color checkboxes 
@@ -198,7 +224,7 @@ public class DotGen : MonoBehaviour
             if (currentHeightMap != null && currentHeightMap.Length == vertices.Length)
             {
                 int curWaterHash = System.HashCode.Combine(enableVolumedWater, oceanSeaLevel, waterOpacity, riverFluxThreshold);
-                int curColorHash = System.HashCode.Combine(curWaterHash, sandShoreRadius, sandMaxAltitude, useSlopeDiagnosticColors, useElevationDevColors, showWaterDischargeDebug);
+                int curColorHash = System.HashCode.Combine(curWaterHash, sandShoreRadius, sandMaxAltitude, System.HashCode.Combine(plainsAltitude, valleyAltitude, rockAltitude, slateAltitude, snowAltitude), useSlopeDiagnosticColors, useElevationDevColors, showWaterDischargeDebug);
 
                 bool waterChanged = curWaterHash != prevWaterHash;
                 bool colorChanged = curColorHash != prevColorHash;
@@ -262,9 +288,11 @@ public class DotGen : MonoBehaviour
                     {
                         // iniitalises height map
                         float[] normalizedMap = GenerateNormalizedHeightMap();
+                        ComputeAridityMap();
 
                         // creates fractal tree-fern ridges for rivers 
                         ComputeThinRiverDrainage(normalizedMap);
+                        ApplyDesertShaping(normalizedMap);
 
                         // run hydraulic erosion on normalised heights
                         if (enableHydraulicErosion && erosionIterations > 0)
@@ -285,18 +313,27 @@ public class DotGen : MonoBehaviour
                         float hSp = heightSpacing;
                         float dropMult = tectonicOceanDropoff;
 
-                        float fixedCoastlineY = (COASTAL_SHELF_NORMALIZED - 0.35f) * hSp;
+                        float fixedCoastlineY = coastlineAltitude;
                         float maxSubmergeSpan = COASTAL_SHELF_NORMALIZED * hSp;
                         float maxExtraDrop = hSp * 0.095f * dropMult;
+
+                        float bigAmp = largeNoiseAmplitude;
+                        float bigInvScale = 1f / Mathf.Max(0.0001f, largeNoiseScale);
+                        System.Random bigPrng = new System.Random(seed ^ 0x2F6B1D);
+                        float bigOffX = (float)bigPrng.NextDouble() * 100f;
+                        float bigOffZ = (float)bigPrng.NextDouble() * 100f;
+                        float bigHalfW = w / 2f;
+                        float bigHalfL = l / 2f;
 
                         Parallel.For(0, l, z =>
                         {
                             int rowOffset = z * w;
                             float worldZ = z * sp;
+                            float bigZ = (z - bigHalfL) * bigInvScale + bigOffZ;
                             for (int x = 0; x < w; x++)
                             {
                                 int index = rowOffset + x;
-                                float worldY = (normalizedMap[index] - 0.35f) * hSp;
+                                float worldY = fixedCoastlineY + (normalizedMap[index] - COASTAL_SHELF_NORMALIZED) * hSp;
 
                                 if (worldY < fixedCoastlineY && maxSubmergeSpan > 0.001f)
                                 {
@@ -306,6 +343,9 @@ public class DotGen : MonoBehaviour
                                     float easeInOut = t * t * (3f - 2f * t);
                                     worldY = fixedCoastlineY - submergeDepth * 0.75f - easeInOut * maxExtraDrop;
                                 }
+
+                                float bigX = (x - bigHalfW) * bigInvScale + bigOffX;
+                                worldY += (Mathf.PerlinNoise(bigX, bigZ) - 0.5f) * 2f * bigAmp;
 
                                 currentHeightMap[index] = worldY;
                                 vertices[index] = new Vector3(x * sp, worldY, worldZ);
@@ -374,6 +414,87 @@ public class DotGen : MonoBehaviour
         }
     }
 
+    private void ComputeAridityMap()
+    {
+        int w = cachedWidth;
+        int l = cachedLength;
+        float[] arid = aridityBuffer;
+        float coverage = desertCoverage;
+
+        if (coverage <= 0.001f)
+        {
+            System.Array.Clear(arid, 0, w * l);
+            return;
+        }
+        if (coverage >= 0.999f)
+        {
+            System.Array.Fill(arid, 1f, 0, w * l);
+            return;
+        }
+
+        System.Random aridPrng = new System.Random(seed ^ 0x51ED27);
+        float offX = (float)aridPrng.NextDouble() * 100f;
+        float offZ = (float)aridPrng.NextDouble() * 100f;
+        float invScale = 1f / Mathf.Max(0.0001f, desertNoiseScale);
+        float halfW = w / 2f;
+        float halfL = l / 2f;
+        float threshold = Mathf.Lerp(0.8f, 0.2f, coverage);
+        float lo = threshold - DESERT_BLEND;
+        float invBand = 1f / (2f * DESERT_BLEND);
+
+        Parallel.For(0, l, z =>
+        {
+            int row = z * w;
+            float sampleZ = (z - halfL) * invScale + offZ;
+            for (int x = 0; x < w; x++)
+            {
+                float sampleX = (x - halfW) * invScale + offX;
+                float n = Mathf.PerlinNoise(sampleX, sampleZ);
+                float t = Mathf.Clamp01((n - lo) * invBand);
+                arid[row + x] = t * t * (3f - 2f * t);
+            }
+        });
+    }
+
+    private void ApplyDesertShaping(float[] heightMap)
+    {
+        if (desertCoverage <= 0.001f) return;
+
+        int w = cachedWidth;
+        int l = cachedLength;
+        float[] arid = aridityBuffer;
+        float baseH = desertBaseHeight;
+        float relief = desertReliefScale;
+        float duneAmp = duneAmplitude;
+        float cosA = Mathf.Cos(DUNE_ANGLE);
+        float sinA = Mathf.Sin(DUNE_ANGLE);
+        float invAlong = 1f / (DUNE_SCALE * DUNE_STRETCH);
+        float invAcross = 1f / DUNE_SCALE;
+
+        System.Random dunePrng = new System.Random(seed ^ 0x3C6EF3);
+        float duneOffX = (float)dunePrng.NextDouble() * 100f;
+        float duneOffZ = (float)dunePrng.NextDouble() * 100f;
+
+        Parallel.For(0, l, z =>
+        {
+            int row = z * w;
+            for (int x = 0; x < w; x++)
+            {
+                int idx = row + x;
+                float a = arid[idx];
+                if (a <= 0.001f) continue;
+
+                float h = heightMap[idx];
+                float u = x * cosA + z * sinA;
+                float v = -x * sinA + z * cosA;
+                float dunePerlin = Mathf.PerlinNoise(u * invAlong + duneOffX, v * invAcross + duneOffZ);
+                float duneRidge = 1f - Mathf.Abs(dunePerlin * 2f - 1f);
+                float desertH = baseH + (h - baseH) * relief + (duneRidge - 0.5f) * duneAmp;
+                heightMap[idx] = Mathf.Clamp01(Mathf.Lerp(h, desertH, a));
+            }
+        });
+    }
+
     private void ComputeTerrainNormals(float[] heightMap, Vector3[] normals)
     {
         int w = cachedWidth;
@@ -438,6 +559,9 @@ public class DotGen : MonoBehaviour
         float maxX = w - safeMargin;
         float maxZ = l - safeMargin;
 
+        float[] dryness = aridityBuffer;
+        bool skipDryDroplets = desertCoverage > 0.001f;
+
         for (int iteration = 0; iteration < iterations; iteration++)
         {
             // spawn droplet at random position inside the grid 
@@ -448,6 +572,15 @@ public class DotGen : MonoBehaviour
 
             float posX = safeMargin + u1 * spawnW;
             float posZ = safeMargin + u2 * spawnL;
+
+            if (skipDryDroplets)
+            {
+                uint dropHash = (uint)iteration * 747796405u + 2891336453u;
+                dropHash = (dropHash ^ (dropHash >> 15)) * 2246822519u;
+                dropHash ^= dropHash >> 13;
+                float dropRoll = (dropHash & 0xFFFFFF) / 16777216f;
+                if (dropRoll < dryness[(int)posZ * w + (int)posX] * DESERT_RAINFALL_CUT) continue;
+            }
             float dirX = 0f;
             float dirZ = 0f;
             float speed = 1f;
@@ -677,6 +810,24 @@ public class DotGen : MonoBehaviour
                 precomputedStep[idx] = Mathf.Min(targetSlope * edgeDist, maxTalusDelta);
             }
         });
+
+        if (desertCoverage > 0.001f)
+        {
+            float[] arid = aridityBuffer;
+            for (int i = 0; i < vertCount; i++)
+            {
+                dischargeMap[i] = 1f - arid[i] * DESERT_RAINFALL_CUT;
+            }
+            for (int i = topoCount - 1; i >= 0; i--)
+            {
+                int idx = topologicalOrder[i];
+                int pIdx = downstreamParent[idx];
+                if (pIdx != -1)
+                {
+                    dischargeMap[pIdx] += dischargeMap[idx] * (1f - arid[pIdx] * DESERT_FLOW_LOSS);
+                }
+            }
+        }
 
         // traverse the river network uphill starting from the mouth
         float[] carvedHeights = carvedHeightsBuffer;
@@ -1093,7 +1244,7 @@ public class DotGen : MonoBehaviour
         float gridAreaScale = (vertCount / 90000f);
         float gridLinearScale = Mathf.Sqrt(gridAreaScale);
         float effectiveTrunkThreshold = Mathf.Max(riverFluxThreshold, 1800f * gridAreaScale);
-        float fixedCoastlineY = (COASTAL_SHELF_NORMALIZED - 0.35f) * heightSpacing;
+        float fixedCoastlineY = coastlineAltitude;
 
         // place water along the main river channels 
         if (waterDischargeMap != null && riverCellIndices != null)
@@ -1337,11 +1488,12 @@ public class DotGen : MonoBehaviour
 
     private void BakeGradientLUT()
     {
-        if (elevationGradient == null) InitializeDefaultGradient();
+        InitializeDefaultGradient();
         float invMax = 1f / (GRADIENT_LUT_SIZE - 1);
         for (int i = 0; i < GRADIENT_LUT_SIZE; i++)
         {
             gradientLUT[i] = elevationGradient.Evaluate(i * invMax);
+            desertLUT[i] = desertGradient.Evaluate(i * invMax);
         }
     }
 
@@ -1360,14 +1512,21 @@ public class DotGen : MonoBehaviour
         Color32 steepCliffColor = new Color(0.27f, 0.27f, 0.29f);  // dark slate cliff
         Color32 streamDebugColor = new Color(0.15f, 0.65f, 0.95f); // cyan river 
 
-        float fixedCoastlineY = (COASTAL_SHELF_NORMALIZED - 0.35f) * heightSpacing;
-        float maxH = float.MinValue;
-        for (int i = 0; i < heightMap.Length; i++)
+        float fixedCoastlineY = coastlineAltitude;
+        float plainsAlt = plainsAltitude;
+        float snowAlt = snowAltitude;
+        float invGradientSpan = 1f / Mathf.Max(0.01f, snowAlt - plainsAlt);
+        float invLandRange = 1f;
+        if (useElevationDevColors)
         {
-            if (heightMap[i] > maxH) maxH = heightMap[i];
+            float maxH = float.MinValue;
+            for (int i = 0; i < heightMap.Length; i++)
+            {
+                if (heightMap[i] > maxH) maxH = heightMap[i];
+            }
+            if (maxH - fixedCoastlineY < 0.01f) maxH = fixedCoastlineY + 1f;
+            invLandRange = 1f / (maxH - fixedCoastlineY);
         }
-        if (maxH - fixedCoastlineY < 0.01f) maxH = fixedCoastlineY + 1f;
-        float invLandRange = 1f / (maxH - fixedCoastlineY);
 
         int w = cachedWidth;
         int l = cachedLength;
@@ -1377,10 +1536,13 @@ public class DotGen : MonoBehaviour
         float fluxThresh = riverFluxThreshold;
         float hSp = heightSpacing;
         float sMaxAlt = sandMaxAltitude;
+        float sandFadeStart = (fixedCoastlineY + sMaxAlt) * 0.5f;
         float sRadius = sandShoreRadius;
         float[] dischargeMap = waterDischargeMap;
         float[] shoreDist = shoreDistanceBuffer;
         Color32[] lut = gradientLUT;
+        Color32[] dLut = desertLUT;
+        float[] aridity = aridityBuffer;
         Color32[] cols = colors;
 
         if (!useSlope && !useElev && shoreDistanceDirty)
@@ -1395,20 +1557,24 @@ public class DotGen : MonoBehaviour
             {
                 int i = row + x;
                 float h = heightMap[i];
-                float normalizedHeight = Mathf.Clamp01((h - fixedCoastlineY) * invLandRange);
+                float gradientT = Mathf.Clamp01((h - plainsAlt) * invGradientSpan);
 
                 if (!useSlope && !useElev)
                 {
-                    float altitudeFade = 1f - Mathf.InverseLerp(sMaxAlt * 0.5f, sMaxAlt, normalizedHeight);
+                    float altitudeFade = 1f - Mathf.InverseLerp(sandFadeStart, sMaxAlt, h);
                     float shoreFade = 1f - Mathf.Clamp01(shoreDist[i] / sRadius);
-                    int lutIdx = (int)(normalizedHeight * (GRADIENT_LUT_SIZE - 1) + 0.5f);
-                    cols[i] = Color32.Lerp(lut[lutIdx], sandBasinColor, altitudeFade * shoreFade);
+                    int lutIdx = (int)(gradientT * (GRADIENT_LUT_SIZE - 1) + 0.5f);
+                    Color32 landColor = lut[lutIdx];
+                    float dryness = aridity[i];
+                    if (dryness > 0.001f) landColor = Color32.Lerp(landColor, dLut[lutIdx], Mathf.Min(1f, dryness * 1.4f));
+                    cols[i] = Color32.Lerp(landColor, sandBasinColor, altitudeFade * shoreFade);
                 }
                 else
                 {
                     Color32 baseHeightColor;
                     if (useElev)
                     {
+                        float normalizedHeight = Mathf.Clamp01((h - fixedCoastlineY) * invLandRange);
                         if (h < fixedCoastlineY)
                         {
                             float oceanDepthT = Mathf.Clamp01((fixedCoastlineY - h) / (hSp * 0.16f));
@@ -1487,6 +1653,7 @@ public class DotGen : MonoBehaviour
         normalizedMapBuffer = new float[vertCount];
         shoreDistanceBuffer = new float[vertCount];
         carvedHeightsBuffer = new float[vertCount];
+        aridityBuffer = new float[vertCount];
         waterVertsBuffer = new Vector3[vertCount];
         waterColsBuffer = new Color32[vertCount];
 
@@ -1697,14 +1864,25 @@ public class DotGen : MonoBehaviour
 
     private void InitializeDefaultGradient()
     {
+        float invSpan = 1f / Mathf.Max(0.01f, snowAltitude - plainsAltitude);
         elevationGradient = new Gradient();
         elevationGradient.colorKeys = new GradientColorKey[]
         {
-            new GradientColorKey(new Color(0.472f, 0.592f, 0.350f), 0.0004f), // plains green
-            new GradientColorKey(new Color(0.28f, 0.52f, 0.25f), 0.05f),// valley green
-            new GradientColorKey(new Color(0.52f, 0.50f, 0.48f), 0.55f),// grey mountain rock
-            new GradientColorKey(new Color(0.35f, 0.34f, 0.36f), 0.78f),// alpine slate
-            new GradientColorKey(Color.white, 0.88f)                    // snow peak
+            new GradientColorKey(new Color(0.472f, 0.592f, 0.350f), 0f), // plains green
+            new GradientColorKey(new Color(0.28f, 0.52f, 0.25f), Mathf.Clamp01((valleyAltitude - plainsAltitude) * invSpan)),// valley green
+            new GradientColorKey(new Color(0.52f, 0.50f, 0.48f), Mathf.Clamp01((rockAltitude - plainsAltitude) * invSpan)),// grey mountain rock
+            new GradientColorKey(new Color(0.35f, 0.34f, 0.36f), Mathf.Clamp01((slateAltitude - plainsAltitude) * invSpan)),// alpine slate
+            new GradientColorKey(Color.white, 1f)                    // snow peak
+        };
+
+        desertGradient = new Gradient();
+        desertGradient.colorKeys = new GradientColorKey[]
+        {
+            new GradientColorKey(new Color(0.82f, 0.73f, 0.50f), 0f),
+            new GradientColorKey(new Color(0.78f, 0.62f, 0.38f), Mathf.Clamp01((valleyAltitude - plainsAltitude) * invSpan)),
+            new GradientColorKey(new Color(0.70f, 0.48f, 0.30f), Mathf.Clamp01((rockAltitude - plainsAltitude) * invSpan)),
+            new GradientColorKey(new Color(0.52f, 0.34f, 0.25f), Mathf.Clamp01((slateAltitude - plainsAltitude) * invSpan)),
+            new GradientColorKey(new Color(0.85f, 0.74f, 0.60f), 1f)
         };
     }
 }
