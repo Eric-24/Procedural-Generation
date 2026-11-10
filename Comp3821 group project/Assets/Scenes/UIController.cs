@@ -25,9 +25,41 @@ public class SandboxUIController : MonoBehaviour
     public GameObject bottomDockPanel;
     public GameObject openDockButton;
 
+    [Header("Color Altitude")]
+    public Slider plainsSlider;
+    public TMP_InputField plainsValueInput;
+    public Slider valleySlider;
+    public TMP_InputField valleyValueInput;
+
+    public Slider rockSlider;
+    public TMP_InputField rockValueInput;
+
+    public Slider slateSlider;
+    public TMP_InputField slateValueInput;
+
+    public Slider snowSlider;
+    public TMP_InputField snowValueInput;
+
+    [Header("Development Settings")]
+    public Toggle slopeDiagnosticsToggle;
+    public Toggle elevationToggle;
+    public Toggle waterDischargeToggle;
+
     [Header("Category Pages (Right Side)")]
     public GameObject advancedParametersPage;
+    public GameObject generalSettingsPage;
+    
     // Add future pages here 
+
+    [Header("General Settings Dropdown")]
+    public GameObject generalSettingsMenu;
+    public RectTransform dropdownArrow;
+
+    [Header("General Settings Panels")]
+    public GameObject seedPanel;
+    public GameObject biomePresetsPanel;
+    public GameObject colorAltitudePanel;
+    public GameObject devSettingsPanel;
 
     void Update()
     {
@@ -44,6 +76,33 @@ public class SandboxUIController : MonoBehaviour
             lastRegenerationTime = Time.unscaledTime;
             dotGenerator.GenerateDotMap();
         }
+    }
+
+    void Start()
+    {
+        SetupAltitudeSlider(plainsSlider, plainsValueInput,
+            value => dotGenerator.plainsAltitude = value, dotGenerator.plainsAltitude);
+
+        SetupAltitudeSlider(valleySlider, valleyValueInput,
+            value => dotGenerator.valleyAltitude = value, dotGenerator.valleyAltitude);
+
+        SetupAltitudeSlider(rockSlider, rockValueInput,
+            value => dotGenerator.rockAltitude = value, dotGenerator.rockAltitude);
+
+        SetupAltitudeSlider(slateSlider, slateValueInput,
+            value => dotGenerator.slateAltitude = value, dotGenerator.slateAltitude);
+
+        SetupAltitudeSlider(snowSlider, snowValueInput,
+            value => dotGenerator.snowAltitude = value, dotGenerator.snowAltitude);
+
+        SetupToggle(slopeDiagnosticsToggle,
+            isOn => dotGenerator.useSlopeDiagnosticColors = isOn);
+
+        SetupToggle(elevationToggle,
+            isOn => dotGenerator.useElevationDevColors = isOn);
+
+        SetupToggle(waterDischargeToggle,
+            isOn => dotGenerator.showWaterDischargeDebug = isOn);
     }
 
     // Request the regeneration of the dot map
@@ -72,10 +131,78 @@ public class SandboxUIController : MonoBehaviour
 
     public void OpenAdvancedParametersTab()
     {
-        advancedParametersPage.SetActive(true);
-        // When you add more category pages later, set them to false here
+        ShowCategoryPage(advancedParametersPage);
     }
 
+    public void OpenGeneralSettingsTab()
+    {
+        ShowCategoryPage(generalSettingsPage);
+        ShowGeneralSettingsPanel(seedPanel);
+    }
+
+    private void ShowCategoryPage(GameObject selectedPage)
+    {
+        advancedParametersPage.SetActive(false);
+        generalSettingsPage.SetActive(false);
+
+        selectedPage.SetActive(true);
+    }
+
+    // General Settings Menu ////////////////
+    public void ToggleGeneralSettingsMenu()
+    {
+        bool isOpening = !generalSettingsMenu.activeSelf;
+
+        generalSettingsMenu.SetActive(isOpening);
+
+        if (dropdownArrow != null)
+        {
+            dropdownArrow.localRotation = Quaternion.Euler(
+                0f, 0f, isOpening ? 180f : 0f
+            );
+        }
+
+        if (isOpening)
+        {
+            OpenGeneralSettingsTab();
+        }
+    }
+
+    public void OpenSeedPanel()
+    {
+        ShowCategoryPage(generalSettingsPage);
+        ShowGeneralSettingsPanel(seedPanel);
+    }
+
+    public void OpenBiomePresetsPanel()
+    {
+        ShowCategoryPage(generalSettingsPage);
+        ShowGeneralSettingsPanel(biomePresetsPanel);
+    }
+
+    public void OpenColorAltitudePanel()
+    {
+        ShowCategoryPage(generalSettingsPage);
+        ShowGeneralSettingsPanel(colorAltitudePanel);
+    }
+
+    public void OpenDevSettingsPanel()
+    {
+        ShowCategoryPage(generalSettingsPage);
+        ShowGeneralSettingsPanel(devSettingsPanel);
+    }
+
+    private void ShowGeneralSettingsPanel(GameObject selectedPanel)
+    {
+        seedPanel.SetActive(false);
+        biomePresetsPanel.SetActive(false);
+        colorAltitudePanel.SetActive(false);
+        devSettingsPanel.SetActive(false);
+
+        selectedPanel.SetActive(true);
+    }
+
+    ///// End General Settings Menu ///////////////////
     public void onAmplitudeChanged(float val)
     {
         dotGenerator.ampMult = val;
@@ -136,6 +263,58 @@ public class SandboxUIController : MonoBehaviour
     {
         dotGenerator.useElevationDevColors = isOn;
         RequestRegen();
+    }
+
+    private void OnPlainsSliderChanged(float value)
+    {
+        plainsValueInput.SetTextWithoutNotify(value.ToString("F2"));
+        dotGenerator.plainsAltitude = value;
+        RequestRegen();
+    }
+
+    // Setting up color altitude sliders: plains, valley, etc.
+    private void SetupAltitudeSlider(
+    Slider slider,
+    TMP_InputField input,
+    System.Action<float> updateAltitude,
+    float initialValue)
+    {
+        slider.SetValueWithoutNotify(initialValue);
+        input.SetTextWithoutNotify(initialValue.ToString("F2"));
+
+        slider.onValueChanged.AddListener(value =>
+        {
+            input.SetTextWithoutNotify(value.ToString("F2"));
+            updateAltitude(value);
+            RequestRegen();
+        });
+
+        input.onEndEdit.AddListener(text =>
+        {
+            if (float.TryParse(text, out float value))
+            {
+                value = Mathf.Clamp(value, slider.minValue, slider.maxValue);
+
+                slider.SetValueWithoutNotify(value);
+                input.SetTextWithoutNotify(value.ToString("F2"));
+
+                updateAltitude(value);
+                RequestRegen();
+            }
+            else
+            {
+                input.SetTextWithoutNotify(slider.value.ToString("F2"));
+            }
+        });
+    }
+
+    private void SetupToggle(Toggle toggle, System.Action<bool> updateSetting)
+    {
+        toggle.onValueChanged.AddListener(isOn =>
+        {
+            updateSetting(isOn);
+            RequestRegen();
+        });
     }
 
     public void ExitApplication()
