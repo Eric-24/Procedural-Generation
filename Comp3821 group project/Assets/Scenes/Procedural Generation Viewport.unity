@@ -1649,19 +1649,7 @@ MonoBehaviour:
   m_Value: -30
   m_OnValueChanged:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 385388773}
-        m_TargetAssemblyTypeName: SandboxUIController, Assembly-CSharp
-        m_MethodName: onAmplitudeChanged
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!1 &173112583
 GameObject:
   m_ObjectHideFlags: 0
@@ -1968,19 +1956,7 @@ MonoBehaviour:
   m_Value: 38
   m_OnValueChanged:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 385388773}
-        m_TargetAssemblyTypeName: SandboxUIController, Assembly-CSharp
-        m_MethodName: onAmplitudeChanged
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!1 &207862939
 GameObject:
   m_ObjectHideFlags: 0
@@ -2811,19 +2787,7 @@ MonoBehaviour:
   m_Value: 45
   m_OnValueChanged:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 385388773}
-        m_TargetAssemblyTypeName: SandboxUIController, Assembly-CSharp
-        m_MethodName: onAmplitudeChanged
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!1 &311867935
 GameObject:
   m_ObjectHideFlags: 0
@@ -6206,19 +6170,7 @@ MonoBehaviour:
   m_Value: 20
   m_OnValueChanged:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 385388773}
-        m_TargetAssemblyTypeName: SandboxUIController, Assembly-CSharp
-        m_MethodName: onAmplitudeChanged
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!1 &722360777
 GameObject:
   m_ObjectHideFlags: 0
@@ -15294,19 +15246,7 @@ MonoBehaviour:
   m_Value: -25
   m_OnValueChanged:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 385388773}
-        m_TargetAssemblyTypeName: SandboxUIController, Assembly-CSharp
-        m_MethodName: onAmplitudeChanged
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!1 &1983287332
 GameObject:
   m_ObjectHideFlags: 0

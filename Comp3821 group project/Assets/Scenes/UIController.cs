@@ -260,25 +260,6 @@ public class SandboxUIController : MonoBehaviour
         RequestRegen();
     }
 
-    public void onSlopeColorToggleChanged(bool isOn)
-    {
-        dotGenerator.useSlopeDiagnosticColors = isOn;
-        RequestRegen();
-    }
-
-    public void onElevationColorToggleChanged(bool isOn)
-    {
-        dotGenerator.useElevationDevColors = isOn;
-        RequestRegen();
-    }
-
-    private void OnPlainsSliderChanged(float value)
-    {
-        plainsValueInput.SetTextWithoutNotify(value.ToString("F2"));
-        dotGenerator.plainsAltitude = value;
-        RequestRegen();
-    }
-
     // Setting up color altitude sliders: plains, valley, etc.
     private void SetupAltitudeSlider(
     Slider slider,
