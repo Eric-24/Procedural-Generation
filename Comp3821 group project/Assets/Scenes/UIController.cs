@@ -253,6 +253,13 @@ public class SandboxUIController : MonoBehaviour
         RequestRegen();
     }
 
+    public void setRandomDefault()
+    {
+        dotGenerator.seed = 0;
+        seedInputField.text = "0";
+        RequestRegen();
+    }
+
     public void onSlopeColorToggleChanged(bool isOn)
     {
         dotGenerator.useSlopeDiagnosticColors = isOn;
@@ -315,6 +322,85 @@ public class SandboxUIController : MonoBehaviour
             updateSetting(isOn);
             RequestRegen();
         });
+    }
+
+    // Biome Presets
+    public void ApplyMixedPreset()
+    {
+        dotGenerator.macroRangeContrast = 0.85f;
+        dotGenerator.largeNoiseAmplitude = 25f;
+        dotGenerator.fernBranchingStrength = 0.8f;
+        dotGenerator.mountainPower = 0.6f;
+        dotGenerator.oceanSeaLevel = -34f;
+        dotGenerator.coastlineAltitude = -30f;
+        dotGenerator.desertCoverage = 0.1f;
+
+        RequestRegen();
+    }
+
+    public void ApplyDesertPreset()
+    {
+        dotGenerator.macroRangeContrast = 0.85f;
+        dotGenerator.largeNoiseAmplitude = 25f;
+        dotGenerator.fernBranchingStrength = 0.8f;
+        dotGenerator.mountainPower = 0.6f;
+        dotGenerator.oceanSeaLevel = -34f;
+        dotGenerator.coastlineAltitude = -30f;
+        dotGenerator.desertCoverage = 1f;
+
+        RequestRegen();
+    }
+
+    public void ApplyOceanPreset()
+    {
+        dotGenerator.macroRangeContrast = 0.85f;
+        dotGenerator.largeNoiseAmplitude = 25f;
+        dotGenerator.fernBranchingStrength = 0.8f;
+        dotGenerator.mountainPower = 0.6f;
+        dotGenerator.oceanSeaLevel = 20f;
+        dotGenerator.coastlineAltitude = -80f;
+        dotGenerator.desertCoverage = 0.5f;
+
+        RequestRegen();
+    }
+
+    public void ApplyArchipelagoPreset()
+    {
+        dotGenerator.macroRangeContrast = 0.85f;
+        dotGenerator.largeNoiseAmplitude = 25f;
+        dotGenerator.fernBranchingStrength = 0.8f;
+        dotGenerator.mountainPower = 0.6f;
+        dotGenerator.oceanSeaLevel = -11f;
+        dotGenerator.coastlineAltitude = -35f;
+        dotGenerator.desertCoverage = 0f;
+
+        RequestRegen();
+    }
+
+    public void ApplyPlainsPreset()
+    {
+        dotGenerator.macroRangeContrast = 0.8f;
+        dotGenerator.largeNoiseAmplitude = 25f;
+        dotGenerator.fernBranchingStrength = 0.6f;
+        dotGenerator.mountainPower = 3f;
+        dotGenerator.oceanSeaLevel = -40f;
+        dotGenerator.coastlineAltitude = -22f;
+        dotGenerator.desertCoverage = 0f;
+
+        RequestRegen();
+    }
+
+    public void ApplyMountainsPreset()
+    {
+        dotGenerator.macroRangeContrast = 0.85f;
+        dotGenerator.largeNoiseAmplitude = 50f;
+        dotGenerator.fernBranchingStrength = 0.8f;
+        dotGenerator.mountainPower = 1.25f;
+        dotGenerator.oceanSeaLevel = -30f;
+        dotGenerator.coastlineAltitude = 0f;
+        dotGenerator.desertCoverage = 0f;
+
+        RequestRegen();
     }
 
     public void ExitApplication()
